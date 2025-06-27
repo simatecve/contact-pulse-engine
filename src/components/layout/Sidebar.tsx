@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { 
@@ -11,7 +10,8 @@ import {
   Bot,
   Home,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Target
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -24,7 +24,8 @@ interface SidebarProps {
 const menuItems = [
   { icon: Home, label: 'Dashboard', path: '/' },
   { icon: MessageSquare, label: 'Conversaciones', path: '/conversations' },
-  { icon: Users, label: 'Contactos & Leads', path: '/contacts' },
+  { icon: Users, label: 'Contactos & Listas', path: '/contacts' },
+  { icon: Target, label: 'Leads', path: '/leads' },
   { icon: Send, label: 'Campañas', path: '/campaigns' },
   { icon: PieChart, label: 'Reportes', path: '/reports' },
   { icon: Bot, label: 'Agentes IA', path: '/ai-agents' },

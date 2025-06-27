@@ -1,10 +1,16 @@
-
 import React from 'react';
 import { Bell, Search, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useAuth } from '@/hooks/useAuth';
 
 export const Header: React.FC = () => {
+  const { signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
+
   return (
     <header className="bg-white border-b border-gray-200 h-16 px-6 flex items-center justify-between">
       <div className="flex items-center flex-1 max-w-md">
@@ -28,6 +34,10 @@ export const Header: React.FC = () => {
           <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
             3
           </span>
+        </Button>
+
+        <Button variant="ghost" size="sm" onClick={handleSignOut}>
+          Cerrar Sesión
         </Button>
       </div>
     </header>
