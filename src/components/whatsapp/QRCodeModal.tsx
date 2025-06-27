@@ -26,6 +26,15 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
     }
   };
 
+  const getQRImageSrc = (qrCode: string) => {
+    // Si ya tiene el prefijo data:image, usarlo directamente
+    if (qrCode.startsWith('data:image/')) {
+      return qrCode;
+    }
+    // Si es solo base64, agregar el prefijo
+    return `data:image/png;base64,${qrCode}`;
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
@@ -41,7 +50,7 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
           {connection?.qr_code ? (
             <div className="flex justify-center">
               <img 
-                src={connection.qr_code} 
+                src={getQRImageSrc(connection.qr_code)}
                 alt="Código QR de WhatsApp" 
                 className="w-64 h-64 border rounded-lg"
               />
