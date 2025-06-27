@@ -50,17 +50,31 @@ export const LeadForm: React.FC<LeadFormProps> = ({
         // Si estamos creando un nuevo lead, limpiar el formulario
         reset();
         setSelectedTags([]);
+        // Establecer la columna por defecto si hay columnas disponibles
+        if (columns.length > 0) {
+          const defaultColumn = columns.find(col => col.is_default) || columns[0];
+          setValue('column_id', defaultColumn.id);
+        }
       }
     }
-  }, [open, lead, setValue, reset]);
+  }, [open, lead, setValue, reset, columns]);
 
   const onSubmit = async (data: LeadFormData) => {
     try {
       const leadData = {
         ...data,
         value: data.value ? Number(data.value) : undefined,
-        tagIds: selectedTags, // Siempre será un array, nunca undefined
+        tagIds: selectedTags,
+        // Asegurar que column_id no sea undefined
+        column_id: data.column_id || (columns.length > 0 ? (columns.find(col => col.is_default) || columns[0]).id : undefined),
       };
+
+      // Limpiar valores undefined que podrían causar problemas con UUIDs
+      Object.keys(leadData).forEach(key => {
+        if (leadData[key as keyof typeof leadData] === undefined) {
+          delete leadData[key as keyof typeof leadData];
+        }
+      });
 
       if (lead) {
         await updateLead.mutateAsync({ id: lead.id, ...leadData });
@@ -174,7 +188,7 @@ export const LeadForm: React.FC<LeadFormProps> = ({
           </div>
 
           <div>
-            <Label htmlFor="column_id">Columna</Label>
+            <Label htmlFor="column_id">Columna *</Label>
             <Select onValueChange={(value) => setValue('column_id', value)} defaultValue={lead?.column_id}>
               <SelectTrigger>
                 <SelectValue placeholder="Seleccionar columna" />
