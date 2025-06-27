@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -27,14 +27,39 @@ export const LeadForm: React.FC<LeadFormProps> = ({
   const { createLead, updateLead } = useLeads();
   const { columns } = useLeadColumns();
   const { tags } = useLeadTags();
-  const [selectedTags, setSelectedTags] = useState<string[]>(lead?.tagIds || []);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+  // Reset form and tags when dialog opens/closes or lead changes
+  useEffect(() => {
+    if (open) {
+      if (lead) {
+        // Si estamos editando, establecer los valores del formulario
+        setValue('name', lead.name || '');
+        setValue('email', lead.email || '');
+        setValue('phone', lead.phone || '');
+        setValue('company', lead.company || '');
+        setValue('priority', lead.priority || '');
+        setValue('value', lead.value || '');
+        setValue('source', lead.source || '');
+        setValue('column_id', lead.column_id || '');
+        setValue('notes', lead.notes || '');
+        
+        // Para las etiquetas, inicializar como array vacío si no hay tagIds
+        setSelectedTags(lead.tagIds || []);
+      } else {
+        // Si estamos creando un nuevo lead, limpiar el formulario
+        reset();
+        setSelectedTags([]);
+      }
+    }
+  }, [open, lead, setValue, reset]);
 
   const onSubmit = async (data: LeadFormData) => {
     try {
       const leadData = {
         ...data,
         value: data.value ? Number(data.value) : undefined,
-        tagIds: selectedTags,
+        tagIds: selectedTags, // Siempre será un array, nunca undefined
       };
 
       if (lead) {
@@ -75,7 +100,6 @@ export const LeadForm: React.FC<LeadFormProps> = ({
               <Input
                 id="name"
                 {...register('name', { required: 'El nombre es requerido' })}
-                defaultValue={lead?.name}
                 placeholder="Nombre del lead"
               />
               {errors.name && (
@@ -89,7 +113,6 @@ export const LeadForm: React.FC<LeadFormProps> = ({
                 id="email"
                 type="email"
                 {...register('email')}
-                defaultValue={lead?.email}
                 placeholder="email@ejemplo.com"
               />
             </div>
@@ -101,7 +124,6 @@ export const LeadForm: React.FC<LeadFormProps> = ({
               <Input
                 id="phone"
                 {...register('phone')}
-                defaultValue={lead?.phone}
                 placeholder="+34 123 456 789"
               />
             </div>
@@ -111,7 +133,6 @@ export const LeadForm: React.FC<LeadFormProps> = ({
               <Input
                 id="company"
                 {...register('company')}
-                defaultValue={lead?.company}
                 placeholder="Nombre de la empresa"
               />
             </div>
@@ -138,7 +159,6 @@ export const LeadForm: React.FC<LeadFormProps> = ({
                 id="value"
                 type="number"
                 {...register('value')}
-                defaultValue={lead?.value}
                 placeholder="0"
               />
             </div>
@@ -148,7 +168,6 @@ export const LeadForm: React.FC<LeadFormProps> = ({
               <Input
                 id="source"
                 {...register('source')}
-                defaultValue={lead?.source}
                 placeholder="Website, LinkedIn, etc."
               />
             </div>
@@ -197,7 +216,6 @@ export const LeadForm: React.FC<LeadFormProps> = ({
             <Textarea
               id="notes"
               {...register('notes')}
-              defaultValue={lead?.notes}
               placeholder="Notas adicionales..."
               rows={3}
             />
