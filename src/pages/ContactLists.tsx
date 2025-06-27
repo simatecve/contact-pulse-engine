@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { Search, Plus, Users, Mail, MoreVertical, Edit, Trash2, Upload, Download } from 'lucide-react';
+import { Search, Plus, Users, Mail, MoreVertical, Edit, Trash2, Upload, Download, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +11,7 @@ import { useContactLists, ContactList } from '@/hooks/useContactLists';
 import { ContactForm } from '@/components/contacts/ContactForm';
 import { ContactListForm } from '@/components/contacts/ContactListForm';
 import { ImportContacts } from '@/components/contacts/ImportContacts';
+import { QuickAddContact } from '@/components/contacts/QuickAddContact';
 
 export const ContactLists: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -19,6 +19,8 @@ export const ContactLists: React.FC = () => {
   const [showContactForm, setShowContactForm] = useState(false);
   const [showListForm, setShowListForm] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [selectedList, setSelectedList] = useState<ContactList | null>(null);
 
   const { contacts, isLoading: contactsLoading } = useContacts();
   const { contactLists, isLoading: listsLoading, deleteList } = useContactLists();
@@ -43,6 +45,11 @@ export const ContactLists: React.FC = () => {
     if (confirm('¿Estás seguro de que quieres eliminar esta lista?')) {
       await deleteList.mutateAsync(listId);
     }
+  };
+
+  const handleQuickAddContact = (list: ContactList) => {
+    setSelectedList(list);
+    setShowQuickAdd(true);
   };
 
   return (
@@ -203,6 +210,10 @@ export const ContactLists: React.FC = () => {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleQuickAddContact(list)}>
+                          <UserPlus className="w-4 h-4 mr-2" />
+                          Agregar Contactos
+                        </DropdownMenuItem>
                         <DropdownMenuItem>
                           <Edit className="w-4 h-4 mr-2" />
                           Editar
@@ -235,9 +246,14 @@ export const ContactLists: React.FC = () => {
                   </div>
 
                   <div className="flex space-x-2">
-                    <Button variant="outline" size="sm" className="flex-1">
-                      <Edit className="w-3 h-3 mr-1" />
-                      Editar
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1"
+                      onClick={() => handleQuickAddContact(list)}
+                    >
+                      <UserPlus className="w-3 h-3 mr-1" />
+                      Agregar
                     </Button>
                     <Button variant="outline" size="sm" className="flex-1">
                       <Mail className="w-3 h-3 mr-1" />
@@ -362,6 +378,14 @@ export const ContactLists: React.FC = () => {
         open={showImportDialog} 
         onOpenChange={setShowImportDialog} 
       />
+
+      {selectedList && (
+        <QuickAddContact 
+          open={showQuickAdd} 
+          onOpenChange={setShowQuickAdd}
+          contactList={selectedList}
+        />
+      )}
     </div>
   );
 };
