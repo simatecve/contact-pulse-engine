@@ -74,28 +74,26 @@ export const LeadForm: React.FC<LeadFormProps> = ({
         return;
       }
 
-      const leadData = {
-        name: data.name,
-        email: data.email || undefined,
-        phone: data.phone || undefined,
-        company: data.company || undefined,
-        priority: data.priority || undefined,
-        value: data.value ? Number(data.value) : undefined,
-        source: data.source || undefined,
-        notes: data.notes || undefined,
-        column_id: columnId,
-        tagIds: selectedTags,
+      // Crear el objeto con los datos del lead, manteniendo solo los valores definidos
+      const leadData: Partial<LeadFormData> & { name: string; column_id: string; tagIds: string[] } = {
+        name: data.name, // Required field, always present
+        column_id: columnId, // Required field, ensured above
+        tagIds: selectedTags, // Always an array
       };
 
-      // Limpiar valores undefined para evitar problemas con UUIDs
-      const cleanedLeadData = Object.fromEntries(
-        Object.entries(leadData).filter(([_, value]) => value !== undefined)
-      );
+      // Agregar campos opcionales solo si tienen valores
+      if (data.email) leadData.email = data.email;
+      if (data.phone) leadData.phone = data.phone;
+      if (data.company) leadData.company = data.company;
+      if (data.priority) leadData.priority = data.priority;
+      if (data.value) leadData.value = Number(data.value);
+      if (data.source) leadData.source = data.source;
+      if (data.notes) leadData.notes = data.notes;
 
       if (lead) {
-        await updateLead.mutateAsync({ id: lead.id, ...cleanedLeadData });
+        await updateLead.mutateAsync({ id: lead.id, ...leadData });
       } else {
-        await createLead.mutateAsync(cleanedLeadData);
+        await createLead.mutateAsync(leadData);
       }
       
       reset();
