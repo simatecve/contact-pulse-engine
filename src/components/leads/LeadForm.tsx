@@ -61,25 +61,41 @@ export const LeadForm: React.FC<LeadFormProps> = ({
 
   const onSubmit = async (data: LeadFormData) => {
     try {
+      // Asegurar que column_id esté definido antes de crear el objeto
+      let columnId = data.column_id;
+      if (!columnId && columns.length > 0) {
+        const defaultColumn = columns.find(col => col.is_default) || columns[0];
+        columnId = defaultColumn.id;
+      }
+
+      // Si aún no hay columnId, no podemos crear el lead
+      if (!columnId) {
+        console.error('No se puede crear el lead sin una columna válida');
+        return;
+      }
+
       const leadData = {
-        ...data,
+        name: data.name,
+        email: data.email || undefined,
+        phone: data.phone || undefined,
+        company: data.company || undefined,
+        priority: data.priority || undefined,
         value: data.value ? Number(data.value) : undefined,
+        source: data.source || undefined,
+        notes: data.notes || undefined,
+        column_id: columnId,
         tagIds: selectedTags,
-        // Asegurar que column_id no sea undefined
-        column_id: data.column_id || (columns.length > 0 ? (columns.find(col => col.is_default) || columns[0]).id : undefined),
       };
 
-      // Limpiar valores undefined que podrían causar problemas con UUIDs
-      Object.keys(leadData).forEach(key => {
-        if (leadData[key as keyof typeof leadData] === undefined) {
-          delete leadData[key as keyof typeof leadData];
-        }
-      });
+      // Limpiar valores undefined para evitar problemas con UUIDs
+      const cleanedLeadData = Object.fromEntries(
+        Object.entries(leadData).filter(([_, value]) => value !== undefined)
+      );
 
       if (lead) {
-        await updateLead.mutateAsync({ id: lead.id, ...leadData });
+        await updateLead.mutateAsync({ id: lead.id, ...cleanedLeadData });
       } else {
-        await createLead.mutateAsync(leadData);
+        await createLead.mutateAsync(cleanedLeadData);
       }
       
       reset();
@@ -97,6 +113,9 @@ export const LeadForm: React.FC<LeadFormProps> = ({
         : [...prev, tagId]
     );
   };
+
+  // Obtener el valor actual de column_id del formulario
+  const currentColumnId = watch('column_id');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -155,7 +174,7 @@ export const LeadForm: React.FC<LeadFormProps> = ({
           <div className="grid grid-cols-3 gap-4">
             <div>
               <Label htmlFor="priority">Prioridad</Label>
-              <Select onValueChange={(value) => setValue('priority', value)} defaultValue={lead?.priority}>
+              <Select onValueChange={(value) => setValue('priority', value)} value={watch('priority') || ''}>
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar prioridad" />
                 </SelectTrigger>
@@ -189,7 +208,10 @@ export const LeadForm: React.FC<LeadFormProps> = ({
 
           <div>
             <Label htmlFor="column_id">Columna *</Label>
-            <Select onValueChange={(value) => setValue('column_id', value)} defaultValue={lead?.column_id}>
+            <Select 
+              onValueChange={(value) => setValue('column_id', value)} 
+              value={currentColumnId || ''}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Seleccionar columna" />
               </SelectTrigger>
