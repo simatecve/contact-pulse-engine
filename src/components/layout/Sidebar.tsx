@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { 
@@ -11,7 +12,8 @@ import {
   Home,
   ChevronLeft,
   ChevronRight,
-  Target
+  Target,
+  Smartphone
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -27,6 +29,7 @@ const menuItems = [
   { icon: Users, label: 'Contactos & Listas', path: '/contacts' },
   { icon: Target, label: 'Leads', path: '/leads' },
   { icon: Send, label: 'Campañas', path: '/campaigns' },
+  { icon: Smartphone, label: 'Conexión', path: '/whatsapp-connections' },
   { icon: PieChart, label: 'Reportes', path: '/reports' },
   { icon: Bot, label: 'Agentes IA', path: '/ai-agents' },
   { icon: Settings, label: 'Configuración', path: '/settings' },

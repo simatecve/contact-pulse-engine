@@ -13,6 +13,7 @@ import { Conversations } from "./pages/Conversations";
 import { ContactLists } from "./pages/ContactLists";
 import { Leads } from "./pages/Leads";
 import { Campaigns } from "./pages/Campaigns";
+import { WhatsAppConnections } from "./pages/WhatsAppConnections";
 import { Reports } from "./pages/Reports";
 import { AIAgents } from "./pages/AIAgents";
 import { Settings } from "./pages/Settings";
@@ -38,6 +39,7 @@ const App = () => (
                     <Route path="/contacts" element={<ContactLists />} />
                     <Route path="/leads" element={<Leads />} />
                     <Route path="/campaigns" element={<Campaigns />} />
+                    <Route path="/whatsapp-connections" element={<WhatsAppConnections />} />
                     <Route path="/reports" element={<Reports />} />
                     <Route path="/ai-agents" element={<AIAgents />} />
                     <Route path="/settings" element={<Settings />} />
