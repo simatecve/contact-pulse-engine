@@ -10,25 +10,25 @@ export interface Campaign {
   name: string;
   message: string;
   contact_list_id: string;
-  max_delay_seconds: number;
-  ai_enabled: boolean;
-  status: 'draft' | 'active' | 'completed' | 'paused';
-  created_at: string;
-  updated_at: string;
+  max_delay_seconds: number | null;
+  ai_enabled: boolean | null;
+  status: string | null;
+  created_at: string | null;
+  updated_at: string | null;
   contact_lists?: {
     name: string;
     contact_count?: number;
   };
   campaign_messages?: Array<{
     id: string;
-    status: string;
+    status: string | null;
   }>;
   campaign_attachments?: Array<{
     id: string;
     file_name: string;
     file_path: string;
-    file_size: number;
-    mime_type: string;
+    file_size: number | null;
+    mime_type: string | null;
   }>;
 }
 
