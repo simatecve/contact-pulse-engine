@@ -26,7 +26,7 @@ export const ConvertToContactListDialog: React.FC<ConvertToContactListDialogProp
   const [listName, setListName] = useState(`Lista de ${columnName}`);
   const [description, setDescription] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const { createContactList } = useContactLists();
+  const { createList } = useContactLists();
   const { createContact } = useContacts();
 
   const handleConvert = async () => {
@@ -42,7 +42,7 @@ export const ConvertToContactListDialog: React.FC<ConvertToContactListDialogProp
     setIsProcessing(true);
     try {
       // Crear la lista de contactos
-      const contactList = await createContactList.mutateAsync({
+      const contactList = await createList.mutateAsync({
         name: listName,
         description: description || `Lista creada desde leads de la columna "${columnName}"`,
         color: '#3B82F6',
