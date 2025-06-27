@@ -55,10 +55,13 @@ export const useLeads = () => {
   const createLead = async (leadData: LeadFormData): Promise<Lead> => {
     if (!user) throw new Error('Usuario no autenticado');
 
+    // Separar tagIds de los datos del lead
+    const { tagIds, ...leadDataWithoutTags } = leadData;
+
     const { data, error } = await supabase
       .from('leads')
       .insert({
-        ...leadData,
+        ...leadDataWithoutTags,
         user_id: user.id,
       })
       .select()
@@ -67,21 +70,25 @@ export const useLeads = () => {
     if (error) throw error;
 
     // Asignar etiquetas si se proporcionaron
-    if (leadData.tagIds && leadData.tagIds.length > 0) {
-      const tagAssignments = leadData.tagIds.map(tagId => ({
+    if (tagIds && tagIds.length > 0) {
+      const tagAssignments = tagIds.map(tagId => ({
         lead_id: data.id,
         tag_id: tagId,
       }));
 
-      await supabase
+      const { error: tagError } = await supabase
         .from('lead_tag_assignments')
         .insert(tagAssignments);
+
+      if (tagError) {
+        console.error('Error assigning tags:', tagError);
+      }
     }
 
     return data;
   };
 
-  const updateLead = async ({ id, ...updateData }: Partial<Lead> & { id: string }): Promise<Lead> => {
+  const updateLead = async ({ id, tagIds, ...updateData }: Partial<Lead> & { id: string; tagIds?: string[] }): Promise<Lead> => {
     if (!user) throw new Error('Usuario no autenticado');
 
     const { data, error } = await supabase
@@ -93,6 +100,32 @@ export const useLeads = () => {
       .single();
 
     if (error) throw error;
+
+    // Actualizar etiquetas si se proporcionaron
+    if (tagIds !== undefined) {
+      // Primero eliminar todas las asignaciones existentes
+      await supabase
+        .from('lead_tag_assignments')
+        .delete()
+        .eq('lead_id', id);
+
+      // Luego insertar las nuevas asignaciones
+      if (tagIds.length > 0) {
+        const tagAssignments = tagIds.map(tagId => ({
+          lead_id: id,
+          tag_id: tagId,
+        }));
+
+        const { error: tagError } = await supabase
+          .from('lead_tag_assignments')
+          .insert(tagAssignments);
+
+        if (tagError) {
+          console.error('Error updating tags:', tagError);
+        }
+      }
+    }
+
     return data;
   };
 
