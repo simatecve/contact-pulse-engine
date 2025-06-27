@@ -1,61 +1,18 @@
 
-import React, { useState } from 'react';
-import { Search, Plus, Filter, MoreVertical, Tag, DollarSign } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, Plus, Filter, MoreVertical, Tag, DollarSign, Settings, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-
-const leadColumns = [
-  { id: 'new', title: 'Nuevos', color: 'bg-gray-100' },
-  { id: 'contacted', title: 'Contactados', color: 'bg-blue-100' },
-  { id: 'qualified', title: 'Calificados', color: 'bg-yellow-100' },
-  { id: 'proposal', title: 'Propuesta', color: 'bg-orange-100' },
-  { id: 'won', title: 'Ganados', color: 'bg-green-100' },
-  { id: 'lost', title: 'Perdidos', color: 'bg-red-100' }
-];
-
-const sampleLeads = [
-  {
-    id: 1,
-    name: 'Juan Pérez - Tech Solutions',
-    email: 'juan@techsolutions.com',
-    phone: '+34 123 456 789',
-    company: 'Tech Solutions',
-    status: 'new',
-    priority: 'high',
-    value: 15000,
-    source: 'Website',
-    tags: ['Tecnología', 'Enterprise'],
-    notes: 'Interesado en solución completa CRM'
-  },
-  {
-    id: 2,
-    name: 'María González - StartupXYZ',
-    email: 'maria@startupxyz.com',
-    phone: '+34 987 654 321',
-    company: 'StartupXYZ',
-    status: 'contacted',
-    priority: 'medium',
-    value: 8500,
-    source: 'LinkedIn',
-    tags: ['Startup', 'SaaS'],
-    notes: 'Reunión programada para la próxima semana'
-  },
-  {
-    id: 3,
-    name: 'Carlos Rodríguez - Marketing Pro',
-    email: 'carlos@marketingpro.com',
-    phone: '+34 555 123 456',
-    company: 'Marketing Pro',
-    status: 'qualified',
-    priority: 'high',
-    value: 22000,
-    source: 'Referido',
-    tags: ['Marketing', 'Agencia'],
-    notes: 'Necesita integración con herramientas actuales'
-  }
-];
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useLeads } from '@/hooks/useLeads';
+import { useLeadColumns } from '@/hooks/useLeadColumns';
+import { useLeadTags } from '@/hooks/useLeadTags';
+import { LeadForm } from '@/components/leads/LeadForm';
+import { LeadColumnForm } from '@/components/leads/LeadColumnForm';
+import { LeadTagForm } from '@/components/leads/LeadTagForm';
+import { ConvertToContactListDialog } from '@/components/leads/ConvertToContactListDialog';
 
 const getPriorityColor = (priority: string) => {
   switch (priority) {
@@ -77,6 +34,84 @@ const getPriorityText = (priority: string) => {
 
 export const Leads: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [leadFormOpen, setLeadFormOpen] = useState(false);
+  const [columnFormOpen, setColumnFormOpen] = useState(false);
+  const [tagFormOpen, setTagFormOpen] = useState(false);
+  const [convertDialogOpen, setConvertDialogOpen] = useState(false);
+  const [selectedLead, setSelectedLead] = useState(null);
+  const [selectedColumn, setSelectedColumn] = useState(null);
+  const [selectedTag, setSelectedTag] = useState(null);
+  const [selectedColumnForConvert, setSelectedColumnForConvert] = useState(null);
+
+  const { leads, isLoading, updateLeadColumn, deleteLead } = useLeads();
+  const { columns, initializeDefaultColumn, deleteColumn } = useLeadColumns();
+  const { tags, deleteTag, fetchLeadTags } = useLeadTags();
+
+  // Inicializar columna por defecto al cargar
+  useEffect(() => {
+    if (columns.length === 0) {
+      initializeDefaultColumn.mutate();
+    }
+  }, [columns.length, initializeDefaultColumn]);
+
+  const filteredLeads = leads.filter(lead =>
+    lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    lead.company?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleLeadMove = async (leadId: string, newColumnId: string) => {
+    try {
+      await updateLeadColumn.mutateAsync({ leadId, columnId: newColumnId });
+    } catch (error) {
+      console.error('Error moving lead:', error);
+    }
+  };
+
+  const handleDeleteLead = async (leadId: string) => {
+    if (window.confirm('¿Estás seguro de que quieres eliminar este lead?')) {
+      try {
+        await deleteLead.mutateAsync(leadId);
+      } catch (error) {
+        console.error('Error deleting lead:', error);
+      }
+    }
+  };
+
+  const handleDeleteColumn = async (columnId: string) => {
+    if (window.confirm('¿Estás seguro de que quieres eliminar esta columna? Los leads se moverán a la columna por defecto.')) {
+      try {
+        await deleteColumn.mutateAsync(columnId);
+      } catch (error) {
+        console.error('Error deleting column:', error);
+      }
+    }
+  };
+
+  const handleDeleteTag = async (tagId: string) => {
+    if (window.confirm('¿Estás seguro de que quieres eliminar esta etiqueta?')) {
+      try {
+        await deleteTag.mutateAsync(tagId);
+      } catch (error) {
+        console.error('Error deleting tag:', error);
+      }
+    }
+  };
+
+  const handleConvertToContactList = (column: any) => {
+    const columnLeads = filteredLeads.filter(lead => lead.column_id === column.id);
+    setSelectedColumnForConvert({ ...column, leads: columnLeads });
+    setConvertDialogOpen(true);
+  };
+
+  const totalValue = leads.reduce((sum, lead) => sum + (lead.value || 0), 0);
+  const totalLeads = leads.length;
+  const highPriorityLeads = leads.filter(lead => lead.priority === 'high').length;
+  const conversionRate = totalLeads > 0 ? ((leads.filter(lead => lead.column_id === columns.find(c => c.name.toLowerCase().includes('gan'))?.id).length / totalLeads) * 100).toFixed(1) : '0';
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-64">Cargando...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -87,11 +122,15 @@ export const Leads: React.FC = () => {
           <p className="text-gray-600 mt-1">Organiza tus oportunidades de venta en formato Kanban</p>
         </div>
         <div className="flex space-x-2">
-          <Button variant="outline">
+          <Button variant="outline" onClick={() => setTagFormOpen(true)}>
             <Tag className="w-4 h-4 mr-2" />
             Gestionar Etiquetas
           </Button>
-          <Button>
+          <Button variant="outline" onClick={() => setColumnFormOpen(true)}>
+            <Settings className="w-4 h-4 mr-2" />
+            Gestionar Columnas
+          </Button>
+          <Button onClick={() => setLeadFormOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
             Nuevo Lead
           </Button>
@@ -105,7 +144,7 @@ export const Leads: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Leads</p>
-                <p className="text-2xl font-bold text-gray-900">247</p>
+                <p className="text-2xl font-bold text-gray-900">{totalLeads}</p>
               </div>
               <div className="h-12 w-12 bg-blue-50 rounded-lg flex items-center justify-center">
                 <Tag className="h-6 w-6 text-blue-600" />
@@ -119,7 +158,7 @@ export const Leads: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Valor Pipeline</p>
-                <p className="text-2xl font-bold text-gray-900">€458K</p>
+                <p className="text-2xl font-bold text-gray-900">€{totalValue.toLocaleString()}</p>
               </div>
               <div className="h-12 w-12 bg-green-50 rounded-lg flex items-center justify-center">
                 <DollarSign className="h-6 w-6 text-green-600" />
@@ -133,7 +172,7 @@ export const Leads: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Tasa Conversión</p>
-                <p className="text-2xl font-bold text-gray-900">18.5%</p>
+                <p className="text-2xl font-bold text-gray-900">{conversionRate}%</p>
               </div>
               <div className="h-12 w-12 bg-purple-50 rounded-lg flex items-center justify-center">
                 <Filter className="h-6 w-6 text-purple-600" />
@@ -146,8 +185,8 @@ export const Leads: React.FC = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Cerrados Este Mes</p>
-                <p className="text-2xl font-bold text-gray-900">12</p>
+                <p className="text-sm font-medium text-gray-600">Alta Prioridad</p>
+                <p className="text-2xl font-bold text-gray-900">{highPriorityLeads}</p>
               </div>
               <div className="h-12 w-12 bg-yellow-50 rounded-lg flex items-center justify-center">
                 <Tag className="h-6 w-6 text-yellow-600" />
@@ -175,21 +214,61 @@ export const Leads: React.FC = () => {
       </div>
 
       {/* Kanban Board */}
-      <div className="grid grid-cols-1 lg:grid-cols-6 gap-6 min-h-[600px]">
-        {leadColumns.map((column) => (
-          <Card key={column.id} className={`${column.color} border-0`}>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-700 flex items-center justify-between">
-                {column.title}
-                <Badge variant="secondary" className="text-xs">
-                  {sampleLeads.filter(lead => lead.status === column.id).length}
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {sampleLeads
-                .filter(lead => lead.status === column.id)
-                .map((lead) => (
+      <div className="flex gap-6 overflow-x-auto min-h-[600px] pb-4">
+        {columns.map((column) => {
+          const columnLeads = filteredLeads.filter(lead => lead.column_id === column.id);
+          
+          return (
+            <Card 
+              key={column.id} 
+              className="min-w-[320px] border-0 shadow-sm"
+              style={{ backgroundColor: column.color + '20' }}
+            >
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-medium text-gray-700 flex items-center">
+                    <span 
+                      className="w-3 h-3 rounded-full mr-2" 
+                      style={{ backgroundColor: column.color }}
+                    />
+                    {column.name}
+                    <Badge variant="secondary" className="ml-2 text-xs">
+                      {columnLeads.length}
+                    </Badge>
+                  </CardTitle>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="p-1 h-6 w-6">
+                        <MoreVertical className="w-3 h-3" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem onClick={() => handleConvertToContactList(column)}>
+                        <Download className="w-4 h-4 mr-2" />
+                        Convertir a Lista
+                      </DropdownMenuItem>
+                      {!column.is_default && (
+                        <>
+                          <DropdownMenuItem onClick={() => {
+                            setSelectedColumn(column);
+                            setColumnFormOpen(true);
+                          }}>
+                            Editar Columna
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => handleDeleteColumn(column.id)}
+                            className="text-red-600"
+                          >
+                            Eliminar Columna
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {columnLeads.map((lead) => (
                   <Card key={lead.id} className="bg-white border shadow-sm hover:shadow-md transition-shadow cursor-pointer">
                     <CardContent className="p-4">
                       <div className="space-y-3">
@@ -197,50 +276,111 @@ export const Leads: React.FC = () => {
                           <h3 className="font-medium text-sm text-gray-900 line-clamp-2">
                             {lead.name}
                           </h3>
-                          <Button variant="ghost" size="sm" className="p-1 h-6 w-6">
-                            <MoreVertical className="w-3 h-3" />
-                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="p-1 h-6 w-6">
+                                <MoreVertical className="w-3 h-3" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                              <DropdownMenuItem onClick={() => {
+                                setSelectedLead(lead);
+                                setLeadFormOpen(true);
+                              }}>
+                                Editar
+                              </DropdownMenuItem>
+                              {columns.map((col) => (
+                                col.id !== lead.column_id && (
+                                  <DropdownMenuItem 
+                                    key={col.id}
+                                    onClick={() => handleLeadMove(lead.id, col.id)}
+                                  >
+                                    Mover a {col.name}
+                                  </DropdownMenuItem>
+                                )
+                              ))}
+                              <DropdownMenuItem 
+                                onClick={() => handleDeleteLead(lead.id)}
+                                className="text-red-600"
+                              >
+                                Eliminar
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                         
                         <div className="space-y-2 text-xs text-gray-600">
-                          <p>{lead.email}</p>
-                          <p>{lead.company}</p>
+                          {lead.email && <p>{lead.email}</p>}
+                          {lead.company && <p>{lead.company}</p>}
                         </div>
 
                         <div className="flex items-center justify-between">
-                          <Badge className={getPriorityColor(lead.priority)}>
-                            {getPriorityText(lead.priority)}
-                          </Badge>
-                          <span className="text-sm font-medium text-gray-900">
-                            €{lead.value.toLocaleString()}
-                          </span>
-                        </div>
-
-                        <div className="flex flex-wrap gap-1">
-                          {lead.tags.map((tag, index) => (
-                            <Badge key={index} variant="outline" className="text-xs">
-                              {tag}
+                          {lead.priority && (
+                            <Badge className={getPriorityColor(lead.priority)}>
+                              {getPriorityText(lead.priority)}
                             </Badge>
-                          ))}
+                          )}
+                          {lead.value && (
+                            <span className="text-sm font-medium text-gray-900">
+                              €{lead.value.toLocaleString()}
+                            </span>
+                          )}
                         </div>
 
-                        <p className="text-xs text-gray-500 line-clamp-2">
-                          {lead.notes}
-                        </p>
+                        {lead.notes && (
+                          <p className="text-xs text-gray-500 line-clamp-2">
+                            {lead.notes}
+                          </p>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
                 ))}
-              
-              {/* Add New Lead Button */}
-              <button className="w-full p-4 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors">
-                <Plus className="w-4 h-4 mx-auto mb-1" />
-                <span className="text-xs">Agregar Lead</span>
-              </button>
-            </CardContent>
-          </Card>
-        ))}
+                
+                {/* Add New Lead Button */}
+                <button 
+                  onClick={() => {
+                    setSelectedLead({ column_id: column.id });
+                    setLeadFormOpen(true);
+                  }}
+                  className="w-full p-4 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <Plus className="w-4 h-4 mx-auto mb-1" />
+                  <span className="text-xs">Agregar Lead</span>
+                </button>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
+
+      {/* Dialogs */}
+      <LeadForm
+        open={leadFormOpen}
+        onOpenChange={setLeadFormOpen}
+        lead={selectedLead}
+      />
+
+      <LeadColumnForm
+        open={columnFormOpen}
+        onOpenChange={setColumnFormOpen}
+        column={selectedColumn}
+      />
+
+      <LeadTagForm
+        open={tagFormOpen}
+        onOpenChange={setTagFormOpen}
+        tag={selectedTag}
+      />
+
+      {selectedColumnForConvert && (
+        <ConvertToContactListDialog
+          open={convertDialogOpen}
+          onOpenChange={setConvertDialogOpen}
+          leads={selectedColumnForConvert.leads}
+          columnName={selectedColumnForConvert.name}
+        />
+      )}
     </div>
   );
 };

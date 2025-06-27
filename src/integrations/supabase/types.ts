@@ -159,6 +159,39 @@ export type Database = {
         }
         Relationships: []
       }
+      lead_columns: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          is_default: boolean
+          name: string
+          position: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name: string
+          position?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          position?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       lead_tag_assignments: {
         Row: {
           assigned_at: string | null
@@ -222,6 +255,7 @@ export type Database = {
       leads: {
         Row: {
           assigned_to: string | null
+          column_id: string | null
           company: string | null
           created_at: string | null
           email: string | null
@@ -238,6 +272,7 @@ export type Database = {
         }
         Insert: {
           assigned_to?: string | null
+          column_id?: string | null
           company?: string | null
           created_at?: string | null
           email?: string | null
@@ -254,6 +289,7 @@ export type Database = {
         }
         Update: {
           assigned_to?: string | null
+          column_id?: string | null
           company?: string | null
           created_at?: string | null
           email?: string | null
@@ -268,7 +304,15 @@ export type Database = {
           user_id?: string
           value?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "leads_column_id_fkey"
+            columns: ["column_id"]
+            isOneToOne: false
+            referencedRelation: "lead_columns"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       messages: {
         Row: {
