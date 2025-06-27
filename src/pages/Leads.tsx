@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, Filter, MoreVertical, Tag, DollarSign, Settings, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -42,6 +41,7 @@ export const Leads: React.FC = () => {
   const [selectedColumn, setSelectedColumn] = useState(null);
   const [selectedTag, setSelectedTag] = useState(null);
   const [selectedColumnForConvert, setSelectedColumnForConvert] = useState(null);
+  const [draggedLead, setDraggedLead] = useState(null);
 
   const { leads, isLoading, updateLeadColumn, deleteLead } = useLeads();
   const { columns, initializeDefaultColumn, deleteColumn } = useLeadColumns();
@@ -66,6 +66,29 @@ export const Leads: React.FC = () => {
     } catch (error) {
       console.error('Error moving lead:', error);
     }
+  };
+
+  // Drag & Drop functions
+  const handleDragStart = (e: React.DragEvent, lead: any) => {
+    setDraggedLead(lead);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = async (e: React.DragEvent, columnId: string) => {
+    e.preventDefault();
+    if (draggedLead && draggedLead.column_id !== columnId) {
+      await handleLeadMove(draggedLead.id, columnId);
+    }
+    setDraggedLead(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedLead(null);
   };
 
   const handleDeleteLead = async (leadId: string) => {
@@ -223,6 +246,8 @@ export const Leads: React.FC = () => {
               key={column.id} 
               className="min-w-[320px] border-0 shadow-sm"
               style={{ backgroundColor: column.color + '20' }}
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, column.id)}
             >
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
@@ -269,7 +294,15 @@ export const Leads: React.FC = () => {
               </CardHeader>
               <CardContent className="space-y-3">
                 {columnLeads.map((lead) => (
-                  <Card key={lead.id} className="bg-white border shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+                  <Card 
+                    key={lead.id} 
+                    className={`bg-white border shadow-sm hover:shadow-md transition-shadow cursor-move ${
+                      draggedLead?.id === lead.id ? 'opacity-50' : ''
+                    }`}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, lead)}
+                    onDragEnd={handleDragEnd}
+                  >
                     <CardContent className="p-4">
                       <div className="space-y-3">
                         <div className="flex items-start justify-between">
