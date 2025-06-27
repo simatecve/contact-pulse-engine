@@ -60,7 +60,7 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
               1. Abre WhatsApp en tu teléfono
             </p>
             <p className="text-sm text-gray-500">
-              2. Ve a Configuración > Dispositivos conectados
+              2. Ve a Configuración → Dispositivos conectados
             </p>
             <p className="text-sm text-gray-500">
               3. Toca "Conectar un dispositivo" y escanea este código

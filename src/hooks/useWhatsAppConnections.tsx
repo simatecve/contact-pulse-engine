@@ -21,6 +21,13 @@ export interface ConnectionFormData {
   color: string;
 }
 
+interface WebhookEndpoint {
+  id: string;
+  name: string;
+  url: string;
+  description: string | null;
+}
+
 export const useWhatsAppConnections = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -42,12 +49,32 @@ export const useWhatsAppConnections = () => {
     enabled: !!user
   });
 
+  const { data: webhooks = [] } = useQuery({
+    queryKey: ['webhook-endpoints'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('webhook_endpoints')
+        .select('*');
+
+      if (error) throw error;
+      return data as WebhookEndpoint[];
+    }
+  });
+
+  const getWebhookUrl = (name: string) => {
+    const webhook = webhooks.find(w => w.name === name);
+    return webhook?.url || '';
+  };
+
   const createConnection = useMutation({
     mutationFn: async (connectionData: ConnectionFormData) => {
       if (!user) throw new Error('Usuario no autenticado');
       
+      const webhookUrl = getWebhookUrl('crear-instancia');
+      if (!webhookUrl) throw new Error('Webhook URL no encontrada');
+      
       // Llamar al webhook para crear la instancia
-      const response = await fetch('https://repuestosonlinecrm-n8n.knbhoa.easypanel.host/webhook/crear-instancia', {
+      const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -97,13 +124,19 @@ export const useWhatsAppConnections = () => {
 
   const getQRCode = useMutation({
     mutationFn: async (connectionId: string) => {
-      const response = await fetch('https://repuestosonlinecrm-n8n.knbhoa.easypanel.host/webhook/qr', {
+      const webhookUrl = getWebhookUrl('qr');
+      if (!webhookUrl) throw new Error('Webhook URL no encontrada');
+
+      const connection = connections.find(c => c.id === connectionId);
+      if (!connection) throw new Error('Conexión no encontrada');
+
+      const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          connectionId: connectionId
+          name: connection.name
         }),
       });
 
