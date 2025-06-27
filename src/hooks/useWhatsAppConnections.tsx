@@ -168,21 +168,69 @@ export const useWhatsAppConnections = () => {
     }
   });
 
-  const markAsConnected = useMutation({
+  const checkConnectionStatus = useMutation({
     mutationFn: async (connectionId: string) => {
-      const { error } = await supabase
-        .from('whatsapp_connections')
-        .update({ status: 'connected', qr_code: null })
-        .eq('id', connectionId);
+      const webhookUrl = getWebhookUrl('estatus-instancia');
+      if (!webhookUrl) throw new Error('Webhook URL no encontrada');
 
-      if (error) throw error;
+      const connection = connections.find(c => c.id === connectionId);
+      if (!connection) throw new Error('Conexión no encontrada');
+
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: connection.name
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al verificar el estatus de la conexión');
+      }
+
+      const result = await response.json();
+      
+      // Si el estatus es "conectado" o "correcto", actualizar en la base de datos
+      if (result.status === 'conectado' || result.status === 'correcto') {
+        const { error } = await supabase
+          .from('whatsapp_connections')
+          .update({ status: 'connected', qr_code: null })
+          .eq('id', connectionId);
+
+        if (error) throw error;
+        
+        toast({
+          title: "WhatsApp conectado",
+          description: "Tu WhatsApp se verificó y está conectado correctamente.",
+        });
+      } else {
+        toast({
+          title: "WhatsApp no conectado",
+          description: "Tu WhatsApp aún no está conectado. Intenta conectar con código QR.",
+          variant: "destructive",
+        });
+      }
+      
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['whatsapp-connections'] });
+    },
+    onError: (error) => {
       toast({
-        title: "WhatsApp conectado",
-        description: "Tu WhatsApp se conectó exitosamente.",
+        title: "Error",
+        description: "No se pudo verificar el estatus de la conexión.",
+        variant: "destructive",
       });
+    }
+  });
+
+  const markAsConnected = useMutation({
+    mutationFn: async (connectionId: string) => {
+      // Primero verificar el estatus con el webhook
+      await checkConnectionStatus.mutateAsync(connectionId);
     }
   });
 
@@ -191,6 +239,7 @@ export const useWhatsAppConnections = () => {
     isLoading,
     createConnection,
     getQRCode,
-    markAsConnected
+    markAsConnected,
+    checkConnectionStatus
   };
 };

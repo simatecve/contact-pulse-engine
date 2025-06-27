@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Plus, Smartphone, Wifi, WifiOff } from 'lucide-react';
+import { Plus, Smartphone, Wifi, WifiOff, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { CreateConnectionForm } from '@/components/whatsapp/CreateConnectionForm';
@@ -12,12 +12,16 @@ export const WhatsAppConnections: React.FC = () => {
   const [selectedConnection, setSelectedConnection] = useState<string | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
   
-  const { connections, isLoading, getQRCode } = useWhatsAppConnections();
+  const { connections, isLoading, getQRCode, checkConnectionStatus } = useWhatsAppConnections();
 
   const handleConnectQR = async (connectionId: string) => {
     setSelectedConnection(connectionId);
     setShowQRModal(true);
     await getQRCode.mutateAsync(connectionId);
+  };
+
+  const handleVerifyConnection = async (connectionId: string) => {
+    await checkConnectionStatus.mutateAsync(connectionId);
   };
 
   const getStatusIcon = (status: string) => {
@@ -87,15 +91,27 @@ export const WhatsAppConnections: React.FC = () => {
               </span>
             </div>
 
-            {connection.status !== 'connected' && (
+            <div className="space-y-2">
+              {connection.status !== 'connected' && (
+                <Button
+                  onClick={() => handleConnectQR(connection.id)}
+                  className="w-full"
+                  variant="outline"
+                >
+                  Conectar con Código QR
+                </Button>
+              )}
+
               <Button
-                onClick={() => handleConnectQR(connection.id)}
+                onClick={() => handleVerifyConnection(connection.id)}
                 className="w-full"
-                variant="outline"
+                variant="secondary"
+                disabled={checkConnectionStatus.isPending}
               >
-                Conectar con Código QR
+                <RefreshCw className={`w-4 h-4 mr-2 ${checkConnectionStatus.isPending ? 'animate-spin' : ''}`} />
+                Verificar Conexión
               </Button>
-            )}
+            </div>
 
             <div className="mt-3 text-xs text-gray-500">
               Creada: {new Date(connection.created_at).toLocaleDateString()}

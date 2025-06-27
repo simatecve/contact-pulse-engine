@@ -67,8 +67,12 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
             </p>
           </div>
           
-          <Button onClick={handleConnected} className="w-full">
-            Ya conecté mi WhatsApp
+          <Button 
+            onClick={handleConnected} 
+            className="w-full"
+            disabled={markAsConnected.isPending}
+          >
+            {markAsConnected.isPending ? 'Verificando...' : 'Ya conecté mi WhatsApp'}
           </Button>
         </div>
       </DialogContent>
