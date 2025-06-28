@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useWhatsAppConnections } from '@/hooks/useWhatsAppConnections';
@@ -15,10 +15,20 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
   onOpenChange, 
   connectionId 
 }) => {
-  const { connections, markAsConnected, getQRFromState } = useWhatsAppConnections();
+  const { connections, markAsConnected, getQRCode, getQRFromState } = useWhatsAppConnections();
   
   const connection = connections.find(c => c.id === connectionId);
   const qrCode = connectionId ? getQRFromState(connectionId) : null;
+
+  // Solicitar código QR automáticamente cuando se abre el modal
+  useEffect(() => {
+    if (open && connectionId && !getQRCode.isPending) {
+      console.log('Modal abierto, solicitando código QR para:', connectionId);
+      getQRCode.mutateAsync(connectionId).catch(error => {
+        console.error('Error al obtener QR automáticamente:', error);
+      });
+    }
+  }, [open, connectionId, getQRCode]);
 
   const handleConnected = async () => {
     if (connectionId) {
@@ -79,7 +89,9 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
             <div className="flex justify-center items-center w-64 h-64 mx-auto border-2 border-dashed border-gray-300 rounded-lg">
               <div className="text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                <p className="text-sm text-gray-500">Generando código QR...</p>
+                <p className="text-sm text-gray-500">
+                  {getQRCode.isPending ? 'Generando código QR...' : 'Obteniendo código QR...'}
+                </p>
               </div>
             </div>
           )}

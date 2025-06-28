@@ -12,12 +12,12 @@ export const WhatsAppConnections: React.FC = () => {
   const [selectedConnection, setSelectedConnection] = useState<string | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
   
-  const { connections, isLoading, getQRCode, checkConnectionStatus } = useWhatsAppConnections();
+  const { connections, isLoading, checkConnectionStatus } = useWhatsAppConnections();
 
   const handleConnectQR = async (connectionId: string) => {
     setSelectedConnection(connectionId);
     setShowQRModal(true);
-    await getQRCode.mutateAsync(connectionId);
+    // Ya no llamamos getQRCode aquí, se hace automáticamente en el modal
   };
 
   const handleVerifyConnection = async (connectionId: string) => {
