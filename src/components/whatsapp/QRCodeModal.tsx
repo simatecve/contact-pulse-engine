@@ -27,6 +27,11 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
   };
 
   const getQRImageSrc = (qrCode: string) => {
+    // Si la respuesta viene en formato "base64:data:image/png;base64,<datos>"
+    if (qrCode.startsWith('base64:')) {
+      // Extraer solo la parte después de "base64:"
+      return qrCode.substring(7); // Remueve "base64:" del inicio
+    }
     // Si ya tiene el prefijo data:image, usarlo directamente
     if (qrCode.startsWith('data:image/')) {
       return qrCode;
