@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Search, MoreVertical, Phone, Video, Send, Paperclip, Smile, Download } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -237,9 +236,7 @@ export const Conversations: React.FC = () => {
                     {message.time}
                   </p>
                   {message.type === 'received' && message.whatsapp_number && (
-                    <p className={`text-xs ml-2 ${
-                      message.type === 'sent' ? 'text-blue-100' : 'text-gray-500'
-                    }`}>
+                    <p className="text-xs ml-2 text-gray-500">
                       {message.whatsapp_number}
                     </p>
                   )}

@@ -452,8 +452,9 @@ export type Database = {
           attachment_url: string | null
           contact_name: string | null
           content: string
-          conversation_id: string
+          conversation_id: string | null
           id: string
+          instancia: string | null
           is_read: boolean | null
           message_type: string | null
           pushname: string | null
@@ -465,8 +466,9 @@ export type Database = {
           attachment_url?: string | null
           contact_name?: string | null
           content: string
-          conversation_id: string
+          conversation_id?: string | null
           id?: string
+          instancia?: string | null
           is_read?: boolean | null
           message_type?: string | null
           pushname?: string | null
@@ -478,8 +480,9 @@ export type Database = {
           attachment_url?: string | null
           contact_name?: string | null
           content?: string
-          conversation_id?: string
+          conversation_id?: string | null
           id?: string
+          instancia?: string | null
           is_read?: boolean | null
           message_type?: string | null
           pushname?: string | null
@@ -487,15 +490,7 @@ export type Database = {
           sent_at?: string | null
           whatsapp_number?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "messages_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       profiles: {
         Row: {
