@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { useConversations } from '@/hooks/useConversations';
 import { useMessages } from '@/hooks/useMessages';
@@ -63,6 +62,16 @@ export const Conversations: React.FC = () => {
         if (!response.ok) {
           throw new Error(`Error en webhook: ${response.statusText}`);
         }
+
+        // Si el webhook se ejecutó correctamente, guardar el mensaje localmente
+        await createMessage.mutateAsync({
+          conversation_id: selectedConversation.id,
+          sender_type: 'user',
+          content: newMessage,
+          message_type: 'text',
+          whatsapp_number: selectedConversation.whatsapp_number,
+          instancia: selectedConversation.instancia,
+        });
 
         toast({
           title: "Mensaje enviado",
