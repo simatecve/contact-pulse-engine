@@ -1,8 +1,8 @@
-
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useWebhooks } from '@/hooks/useWebhooks';
 import { toast } from '@/hooks/use-toast';
 
 export interface Campaign {
@@ -44,6 +44,7 @@ export interface CampaignFormData {
 export const useCampaigns = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { getWebhookByName } = useWebhooks();
 
   const { data: campaigns = [], isLoading } = useQuery({
     queryKey: ['campaigns', user?.id],
@@ -197,12 +198,101 @@ export const useCampaigns = () => {
     }
   });
 
+  const sendCampaign = useMutation({
+    mutationFn: async (campaignId: string) => {
+      // Get campaign data with all related information
+      const { data: campaignData, error } = await supabase
+        .from('campaigns')
+        .select(`
+          *,
+          contact_lists!inner(
+            id,
+            name,
+            contact_list_members(
+              contacts(*)
+            )
+          ),
+          campaign_attachments(*)
+        `)
+        .eq('id', campaignId)
+        .single();
+
+      if (error) throw error;
+
+      // Get the webhook URL
+      const webhook = getWebhookByName('enviar-masivo');
+      if (!webhook) {
+        throw new Error('Webhook no encontrado');
+      }
+
+      // Prepare campaign data for webhook
+      const webhookData = {
+        campaign: {
+          id: campaignData.id,
+          name: campaignData.name,
+          message: campaignData.message,
+          max_delay_seconds: campaignData.max_delay_seconds,
+          ai_enabled: campaignData.ai_enabled,
+          status: campaignData.status,
+          created_at: campaignData.created_at,
+          updated_at: campaignData.updated_at
+        },
+        contact_list: {
+          id: campaignData.contact_lists.id,
+          name: campaignData.contact_lists.name,
+          contacts: campaignData.contact_lists.contact_list_members.map((member: any) => member.contacts)
+        },
+        attachments: campaignData.campaign_attachments || [],
+        user_id: user?.id
+      };
+
+      // Send to webhook
+      const response = await fetch(webhook.url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(webhookData),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error en webhook: ${response.statusText}`);
+      }
+
+      // Update campaign status to active
+      const { error: updateError } = await supabase
+        .from('campaigns')
+        .update({ status: 'active' })
+        .eq('id', campaignId);
+
+      if (updateError) throw updateError;
+
+      return campaignData;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+      toast({
+        title: "Campaña enviada",
+        description: "La campaña se está enviando exitosamente.",
+      });
+    },
+    onError: (error) => {
+      console.error('Error sending campaign:', error);
+      toast({
+        title: "Error",
+        description: `No se pudo enviar la campaña: ${error.message}`,
+        variant: "destructive",
+      });
+    }
+  });
+
   return {
     campaigns,
     isLoading,
     createCampaign,
     updateCampaign,
     deleteCampaign,
-    startCampaign
+    startCampaign,
+    sendCampaign
   };
 };

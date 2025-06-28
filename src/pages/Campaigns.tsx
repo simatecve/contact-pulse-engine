@@ -10,7 +10,7 @@ import { useCampaigns } from '@/hooks/useCampaigns';
 
 export const Campaigns: React.FC = () => {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const { campaigns, isLoading, deleteCampaign, startCampaign, updateCampaign } = useCampaigns();
+  const { campaigns, isLoading, deleteCampaign, startCampaign, updateCampaign, sendCampaign } = useCampaigns();
 
   const handleDeleteCampaign = async (id: string) => {
     if (confirm('¿Estás seguro de que quieres eliminar esta campaña?')) {
@@ -24,6 +24,10 @@ export const Campaigns: React.FC = () => {
 
   const handlePauseCampaign = async (id: string) => {
     await updateCampaign.mutateAsync({ id, status: 'paused' });
+  };
+
+  const handleSendCampaign = async (id: string) => {
+    await sendCampaign.mutateAsync(id);
   };
 
   if (isLoading) {
@@ -64,6 +68,7 @@ export const Campaigns: React.FC = () => {
         onDeleteCampaign={handleDeleteCampaign}
         onStartCampaign={handleStartCampaign}
         onPauseCampaign={handlePauseCampaign}
+        onSendCampaign={handleSendCampaign}
       />
     </div>
   );
