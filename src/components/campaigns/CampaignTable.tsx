@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Plus, MoreVertical, Play, Pause, Trash2, MessageSquare } from 'lucide-react';
+import { Plus, MoreVertical, Play, Pause, Trash2, MessageSquare, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +15,7 @@ interface CampaignTableProps {
   onDeleteCampaign: (id: string) => void;
   onStartCampaign: (id: string) => void;
   onPauseCampaign: (id: string) => void;
+  onSendCampaign: (id: string) => void;
 }
 
 export const CampaignTable: React.FC<CampaignTableProps> = ({
@@ -22,7 +23,8 @@ export const CampaignTable: React.FC<CampaignTableProps> = ({
   onShowCreateDialog,
   onDeleteCampaign,
   onStartCampaign,
-  onPauseCampaign
+  onPauseCampaign,
+  onSendCampaign
 }) => {
   return (
     <Card>
@@ -106,10 +108,16 @@ export const CampaignTable: React.FC<CampaignTableProps> = ({
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         {campaign.status === 'draft' && (
-                          <DropdownMenuItem onClick={() => onStartCampaign(campaign.id)}>
-                            <Play className="w-4 h-4 mr-2" />
-                            Iniciar
-                          </DropdownMenuItem>
+                          <>
+                            <DropdownMenuItem onClick={() => onStartCampaign(campaign.id)}>
+                              <Play className="w-4 h-4 mr-2" />
+                              Iniciar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => onSendCampaign(campaign.id)}>
+                              <Send className="w-4 h-4 mr-2" />
+                              Enviar
+                            </DropdownMenuItem>
+                          </>
                         )}
                         {campaign.status === 'active' && (
                           <DropdownMenuItem onClick={() => onPauseCampaign(campaign.id)}>
