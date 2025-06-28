@@ -15,9 +15,10 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
   onOpenChange, 
   connectionId 
 }) => {
-  const { connections, markAsConnected } = useWhatsAppConnections();
+  const { connections, markAsConnected, getQRFromState } = useWhatsAppConnections();
   
   const connection = connections.find(c => c.id === connectionId);
+  const qrCode = connectionId ? getQRFromState(connectionId) : null;
 
   const handleConnected = async () => {
     if (connectionId) {
@@ -45,7 +46,7 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
     return qrCode;
   };
 
-  const qrImageSrc = connection?.qr_code ? getQRImageSrc(connection.qr_code) : null;
+  const qrImageSrc = qrCode ? getQRImageSrc(qrCode) : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

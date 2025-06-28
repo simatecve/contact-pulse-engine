@@ -30,6 +30,7 @@ interface WebhookEndpoint {
 export const useWhatsAppConnections = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [qrCodes, setQrCodes] = useState<Record<string, string>>({});
 
   const { data: connections = [], isLoading } = useQuery({
     queryKey: ['whatsapp-connections', user?.id],
@@ -146,56 +147,40 @@ export const useWhatsAppConnections = () => {
         throw new Error(`Error al obtener el código QR: ${response.status}`);
       }
 
-      // Obtener la respuesta como texto primero
       const responseText = await response.text();
       console.log('Respuesta del webhook QR:', responseText);
 
       let qrCodeData;
       
       try {
-        // Intentar parsear como JSON primero
         const jsonResponse = JSON.parse(responseText);
         console.log('Respuesta parseada como JSON:', jsonResponse);
         
-        // Si es un array con estructura { data: { base64: "..." } }
         if (Array.isArray(jsonResponse) && jsonResponse[0] && jsonResponse[0].data && jsonResponse[0].data.base64) {
           qrCodeData = jsonResponse[0].data.base64;
-        }
-        // Si tiene la propiedad qr_code directamente
-        else if (jsonResponse.qr_code) {
+        } else if (jsonResponse.qr_code) {
           qrCodeData = jsonResponse.qr_code;
-        }
-        // Si es un objeto con base64
-        else if (jsonResponse.base64) {
+        } else if (jsonResponse.base64) {
           qrCodeData = jsonResponse.base64;
-        }
-        // Si es la respuesta directa
-        else {
+        } else {
           qrCodeData = responseText;
         }
       } catch (parseError) {
-        // Si no es JSON válido, usar la respuesta directa
         console.log('Respuesta no es JSON válido, usando respuesta directa');
         qrCodeData = responseText;
       }
 
       console.log('Datos del QR procesados:', qrCodeData ? qrCodeData.substring(0, 50) + '...' : 'null');
       
-      // Actualizar la conexión con el código QR
-      const { error } = await supabase
-        .from('whatsapp_connections')
-        .update({ qr_code: qrCodeData })
-        .eq('id', connectionId);
-
-      if (error) {
-        console.error('Error al actualizar QR en base de datos:', error);
-        throw error;
-      }
+      // Guardar el QR en el estado local en lugar de la base de datos
+      setQrCodes(prev => ({
+        ...prev,
+        [connectionId]: qrCodeData
+      }));
       
       return qrCodeData;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['whatsapp-connections'] });
       toast({
         title: "Código QR generado",
         description: "El código QR se generó correctamente.",
@@ -219,6 +204,9 @@ export const useWhatsAppConnections = () => {
       const connection = connections.find(c => c.id === connectionId);
       if (!connection) throw new Error('Conexión no encontrada');
 
+      console.log('Verificando estatus para:', connection.name);
+      console.log('URL del webhook:', webhookUrl);
+
       const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
@@ -230,19 +218,38 @@ export const useWhatsAppConnections = () => {
       });
 
       if (!response.ok) {
+        console.error('Error en respuesta del webhook de estatus:', response.status, response.statusText);
         throw new Error('Error al verificar el estatus de la conexión');
       }
 
-      const result = await response.json();
+      const responseText = await response.text();
+      console.log('Respuesta del webhook de estatus:', responseText);
+
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (parseError) {
+        console.log('Respuesta no es JSON válido');
+        result = { status: responseText };
+      }
+
+      console.log('Resultado del estatus:', result);
       
       // Si el estatus es "conectado" o "correcto", actualizar en la base de datos
-      if (result.status === 'conectado' || result.status === 'correcto') {
+      if (result.status === 'conectado' || result.status === 'correcto' || result.status === 'connected') {
         const { error } = await supabase
           .from('whatsapp_connections')
-          .update({ status: 'connected', qr_code: null })
+          .update({ status: 'connected' })
           .eq('id', connectionId);
 
         if (error) throw error;
+        
+        // Limpiar el QR del estado local
+        setQrCodes(prev => {
+          const newQrCodes = { ...prev };
+          delete newQrCodes[connectionId];
+          return newQrCodes;
+        });
         
         toast({
           title: "WhatsApp conectado",
@@ -262,6 +269,7 @@ export const useWhatsAppConnections = () => {
       queryClient.invalidateQueries({ queryKey: ['whatsapp-connections'] });
     },
     onError: (error) => {
+      console.error('Error en checkConnectionStatus:', error);
       toast({
         title: "Error",
         description: "No se pudo verificar el estatus de la conexión.",
@@ -277,12 +285,18 @@ export const useWhatsAppConnections = () => {
     }
   });
 
+  // Función para obtener el QR desde el estado local
+  const getQRFromState = (connectionId: string) => {
+    return qrCodes[connectionId] || null;
+  };
+
   return {
     connections,
     isLoading,
     createConnection,
     getQRCode,
     markAsConnected,
-    checkConnectionStatus
+    checkConnectionStatus,
+    getQRFromState
   };
 };
