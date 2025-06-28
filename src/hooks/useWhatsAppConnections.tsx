@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -130,6 +129,8 @@ export const useWhatsAppConnections = () => {
       const connection = connections.find(c => c.id === connectionId);
       if (!connection) throw new Error('Conexión no encontrada');
 
+      console.log('Solicitando código QR para:', connection.name);
+
       const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
@@ -141,25 +142,67 @@ export const useWhatsAppConnections = () => {
       });
 
       if (!response.ok) {
-        throw new Error('Error al obtener el código QR');
+        console.error('Error en respuesta del webhook:', response.status, response.statusText);
+        throw new Error(`Error al obtener el código QR: ${response.status}`);
       }
 
-      const result = await response.json();
+      // Obtener la respuesta como texto primero
+      const responseText = await response.text();
+      console.log('Respuesta del webhook QR:', responseText);
+
+      let qrCodeData;
+      
+      try {
+        // Intentar parsear como JSON primero
+        const jsonResponse = JSON.parse(responseText);
+        console.log('Respuesta parseada como JSON:', jsonResponse);
+        
+        // Si es un array con estructura { data: { base64: "..." } }
+        if (Array.isArray(jsonResponse) && jsonResponse[0] && jsonResponse[0].data && jsonResponse[0].data.base64) {
+          qrCodeData = jsonResponse[0].data.base64;
+        }
+        // Si tiene la propiedad qr_code directamente
+        else if (jsonResponse.qr_code) {
+          qrCodeData = jsonResponse.qr_code;
+        }
+        // Si es un objeto con base64
+        else if (jsonResponse.base64) {
+          qrCodeData = jsonResponse.base64;
+        }
+        // Si es la respuesta directa
+        else {
+          qrCodeData = responseText;
+        }
+      } catch (parseError) {
+        // Si no es JSON válido, usar la respuesta directa
+        console.log('Respuesta no es JSON válido, usando respuesta directa');
+        qrCodeData = responseText;
+      }
+
+      console.log('Datos del QR procesados:', qrCodeData ? qrCodeData.substring(0, 50) + '...' : 'null');
       
       // Actualizar la conexión con el código QR
       const { error } = await supabase
         .from('whatsapp_connections')
-        .update({ qr_code: result.qr_code })
+        .update({ qr_code: qrCodeData })
         .eq('id', connectionId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error al actualizar QR en base de datos:', error);
+        throw error;
+      }
       
-      return result.qr_code;
+      return qrCodeData;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['whatsapp-connections'] });
+      toast({
+        title: "Código QR generado",
+        description: "El código QR se generó correctamente.",
+      });
     },
     onError: (error) => {
+      console.error('Error en getQRCode:', error);
       toast({
         title: "Error",
         description: "No se pudo obtener el código QR.",

@@ -27,44 +27,25 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
   };
 
   const getQRImageSrc = (qrCode: string) => {
-    try {
-      // Intentar parsear como JSON primero
-      const parsed = JSON.parse(qrCode);
-      if (parsed && parsed[0] && parsed[0].data && parsed[0].data.base64) {
-        return parsed[0].data.base64;
-      }
-    } catch (error) {
-      // Si no es JSON válido, procesar como string
-    }
+    console.log('Procesando QR para mostrar:', qrCode ? qrCode.substring(0, 50) + '...' : 'null');
+    
+    if (!qrCode) return null;
 
-    // Si la respuesta viene en formato "base64:data:image/png;base64,<datos>"
-    if (qrCode.startsWith('base64:data:image/png;base64,')) {
-      // Extraer solo la parte después de "base64:", que ya incluye "data:image/png;base64,"
-      return qrCode.substring(7); // Remueve "base64:" del inicio
-    }
-    // Si viene en formato "base64:data:image/" genérico
-    if (qrCode.startsWith('base64:data:image/')) {
-      // Extraer la parte después de "base64:"
-      return qrCode.substring(7);
-    }
-    // Si viene en formato "base64:" genérico
-    if (qrCode.startsWith('base64:')) {
-      // Extraer la parte después de "base64:"
-      const withoutPrefix = qrCode.substring(7);
-      // Si ya tiene el prefijo data:image, usarlo directamente
-      if (withoutPrefix.startsWith('data:image/')) {
-        return withoutPrefix;
-      }
-      // Si es solo base64, agregar el prefijo
-      return `data:image/png;base64,${withoutPrefix}`;
-    }
-    // Si ya tiene el prefijo data:image, usarlo directamente
+    // Si ya tiene el prefijo data:image, usarlo directamente  
     if (qrCode.startsWith('data:image/')) {
       return qrCode;
     }
+    
     // Si es solo base64, agregar el prefijo
-    return `data:image/png;base64,${qrCode}`;
+    if (qrCode.match(/^[A-Za-z0-9+/=]+$/)) {
+      return `data:image/png;base64,${qrCode}`;
+    }
+    
+    // Para cualquier otro formato, intentar usarlo directamente
+    return qrCode;
   };
+
+  const qrImageSrc = connection?.qr_code ? getQRImageSrc(connection.qr_code) : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -78,12 +59,19 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
             Escanea el código QR con tu WhatsApp para conectar
           </p>
           
-          {connection?.qr_code ? (
+          {qrImageSrc ? (
             <div className="flex justify-center">
               <img 
-                src={getQRImageSrc(connection.qr_code)}
+                src={qrImageSrc}
                 alt="Código QR de WhatsApp" 
                 className="w-64 h-64 border rounded-lg"
+                onError={(e) => {
+                  console.error('Error al cargar imagen QR:', e);
+                  console.log('URL de imagen que falló:', qrImageSrc);
+                }}
+                onLoad={() => {
+                  console.log('Imagen QR cargada correctamente');
+                }}
               />
             </div>
           ) : (
