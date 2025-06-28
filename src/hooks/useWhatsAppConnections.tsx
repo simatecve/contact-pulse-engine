@@ -180,11 +180,14 @@ export const useWhatsAppConnections = () => {
       
       return qrCodeData;
     },
-    onSuccess: () => {
-      toast({
-        title: "Código QR generado",
-        description: "El código QR se generó correctamente.",
-      });
+    onSuccess: (data, connectionId) => {
+      // Solo mostrar el toast si realmente obtuvimos un QR válido
+      if (data && data !== 'null') {
+        toast({
+          title: "Código QR generado",
+          description: "El código QR se generó correctamente.",
+        });
+      }
     },
     onError: (error) => {
       console.error('Error en getQRCode:', error);
