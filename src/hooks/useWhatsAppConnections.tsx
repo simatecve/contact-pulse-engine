@@ -283,8 +283,37 @@ export const useWhatsAppConnections = () => {
 
   const markAsConnected = useMutation({
     mutationFn: async (connectionId: string) => {
-      // Primero verificar el estatus con el webhook
-      await checkConnectionStatus.mutateAsync(connectionId);
+      // Actualizar directamente el estatus en la base de datos sin webhook
+      const { error } = await supabase
+        .from('whatsapp_connections')
+        .update({ status: 'connected' })
+        .eq('id', connectionId);
+
+      if (error) throw error;
+      
+      // Limpiar el QR del estado local
+      setQrCodes(prev => {
+        const newQrCodes = { ...prev };
+        delete newQrCodes[connectionId];
+        return newQrCodes;
+      });
+      
+      return { success: true };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['whatsapp-connections'] });
+      toast({
+        title: "WhatsApp conectado",
+        description: "Tu WhatsApp se marcó como conectado correctamente.",
+      });
+    },
+    onError: (error) => {
+      console.error('Error en markAsConnected:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo marcar la conexión como conectada.",
+        variant: "destructive",
+      });
     }
   });
 
