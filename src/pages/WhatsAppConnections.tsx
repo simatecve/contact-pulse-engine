@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Plus, Smartphone, Wifi, WifiOff, RefreshCw } from 'lucide-react';
+import { Plus, Smartphone, Wifi, WifiOff, RefreshCw, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { CreateConnectionForm } from '@/components/whatsapp/CreateConnectionForm';
@@ -12,16 +12,21 @@ export const WhatsAppConnections: React.FC = () => {
   const [selectedConnection, setSelectedConnection] = useState<string | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
   
-  const { connections, isLoading, checkConnectionStatus } = useWhatsAppConnections();
+  const { connections, isLoading, checkConnectionStatus, deleteConnection } = useWhatsAppConnections();
 
   const handleConnectQR = async (connectionId: string) => {
     setSelectedConnection(connectionId);
     setShowQRModal(true);
-    // Ya no llamamos getQRCode aquí, se hace automáticamente en el modal
   };
 
   const handleVerifyConnection = async (connectionId: string) => {
     await checkConnectionStatus.mutateAsync(connectionId);
+  };
+
+  const handleDeleteConnection = async (connectionId: string) => {
+    if (window.confirm('¿Estás seguro de que quieres eliminar esta conexión?')) {
+      await deleteConnection.mutateAsync(connectionId);
+    }
   };
 
   const getStatusIcon = (status: string) => {
@@ -110,6 +115,16 @@ export const WhatsAppConnections: React.FC = () => {
               >
                 <RefreshCw className={`w-4 h-4 mr-2 ${checkConnectionStatus.isPending ? 'animate-spin' : ''}`} />
                 Verificar Conexión
+              </Button>
+
+              <Button
+                onClick={() => handleDeleteConnection(connection.id)}
+                className="w-full"
+                variant="destructive"
+                disabled={deleteConnection.isPending}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                {deleteConnection.isPending ? 'Eliminando...' : 'Eliminar Instancia'}
               </Button>
             </div>
 

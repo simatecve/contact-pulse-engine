@@ -317,6 +317,68 @@ export const useWhatsAppConnections = () => {
     }
   });
 
+  const deleteConnection = useMutation({
+    mutationFn: async (connectionId: string) => {
+      const webhookUrl = getWebhookUrl('eliminar-instancia');
+      if (!webhookUrl) throw new Error('Webhook URL no encontrada');
+
+      const connection = connections.find(c => c.id === connectionId);
+      if (!connection) throw new Error('Conexión no encontrada');
+
+      console.log('Eliminando instancia:', connection.name);
+
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: connection.name
+        }),
+      });
+
+      if (!response.ok) {
+        console.error('Error en respuesta del webhook de eliminar:', response.status, response.statusText);
+        throw new Error('Error al eliminar la instancia en el webhook');
+      }
+
+      const responseText = await response.text();
+      console.log('Respuesta del webhook de eliminar:', responseText);
+
+      // Si el webhook responde correctamente, eliminar de la base de datos
+      const { error } = await supabase
+        .from('whatsapp_connections')
+        .delete()
+        .eq('id', connectionId);
+
+      if (error) throw error;
+
+      // Limpiar el QR del estado local si existe
+      setQrCodes(prev => {
+        const newQrCodes = { ...prev };
+        delete newQrCodes[connectionId];
+        return newQrCodes;
+      });
+
+      return { success: true };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['whatsapp-connections'] });
+      toast({
+        title: "Instancia eliminada",
+        description: "La instancia de WhatsApp se eliminó correctamente.",
+      });
+    },
+    onError: (error) => {
+      console.error('Error en deleteConnection:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar la instancia de WhatsApp.",
+        variant: "destructive",
+      });
+    }
+  });
+
   // Función para obtener el QR desde el estado local
   const getQRFromState = (connectionId: string) => {
     return qrCodes[connectionId] || null;
@@ -329,6 +391,7 @@ export const useWhatsAppConnections = () => {
     getQRCode,
     markAsConnected,
     checkConnectionStatus,
+    deleteConnection,
     getQRFromState
   };
 };
