@@ -15,9 +15,15 @@ export const Conversations: React.FC = () => {
   const [newMessage, setNewMessage] = useState('');
   const [conversationMessages, setConversationMessages] = useState([]);
 
+  // Log para debugging - ver qué conversaciones tenemos
+  useEffect(() => {
+    console.log('Conversaciones cargadas:', conversations);
+  }, [conversations]);
+
   // Seleccionar la primera conversación por defecto
   useEffect(() => {
     if (conversations.length > 0 && !selectedConversation) {
+      console.log('Seleccionando primera conversación:', conversations[0]);
       setSelectedConversation(conversations[0]);
     }
   }, [conversations, selectedConversation]);
@@ -28,13 +34,19 @@ export const Conversations: React.FC = () => {
   );
 
   useEffect(() => {
+    console.log('Mensajes cargados para conversación:', selectedConversation?.id, messages);
     setConversationMessages(messages);
-  }, [messages]);
+  }, [messages, selectedConversation?.id]);
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation) return;
 
     try {
+      console.log('Enviando mensaje:', {
+        conversation_id: selectedConversation.id,
+        content: newMessage
+      });
+      
       await createMessage.mutateAsync({
         conversation_id: selectedConversation.id,
         sender_type: 'user',
@@ -55,6 +67,8 @@ export const Conversations: React.FC = () => {
     return <div className="flex items-center justify-center h-64">Cargando conversaciones...</div>;
   }
 
+  console.log('Renderizando conversaciones. Total:', conversations.length);
+
   return (
     <div className="h-full flex">
       {/* Conversations List */}
@@ -70,55 +84,64 @@ export const Conversations: React.FC = () => {
         </div>
 
         <div className="overflow-y-auto">
-          {conversations.map((conversation) => (
-            <div
-              key={conversation.id}
-              className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${
-                selectedConversation?.id === conversation.id ? 'bg-blue-50 border-r-2 border-blue-600' : ''
-              }`}
-              onClick={() => setSelectedConversation(conversation)}
-            >
-              <div className="flex items-center space-x-3">
-                <div className="relative">
-                  <div className="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center">
-                    <span className="text-sm font-medium text-gray-700">
-                      {conversation.contact_name ? 
-                        conversation.contact_name.split(' ').map(n => n[0]).join('') :
-                        'W'
-                      }
-                    </span>
+          {conversations.length === 0 ? (
+            <div className="p-4 text-center text-gray-500">
+              No hay conversaciones disponibles
+            </div>
+          ) : (
+            conversations.map((conversation) => (
+              <div
+                key={conversation.id}
+                className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${
+                  selectedConversation?.id === conversation.id ? 'bg-blue-50 border-r-2 border-blue-600' : ''
+                }`}
+                onClick={() => {
+                  console.log('Seleccionando conversación:', conversation);
+                  setSelectedConversation(conversation);
+                }}
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="relative">
+                    <div className="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center">
+                      <span className="text-sm font-medium text-gray-700">
+                        {conversation.contact_name ? 
+                          conversation.contact_name.split(' ').map(n => n[0]).join('') :
+                          'W'
+                        }
+                      </span>
+                    </div>
+                    {conversation.status === 'active' && (
+                      <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+                    )}
                   </div>
-                  {conversation.status === 'active' && (
-                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-medium text-gray-900 truncate">
-                      {conversation.contact_name || 'Sin nombre'}
-                    </h3>
-                    <span className="text-xs text-gray-500">
-                      {conversation.last_message_at ? 
-                        new Date(conversation.last_message_at).toLocaleTimeString('es-ES', { 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        }) : 
-                        ''
-                      }
-                    </span>
-                  </div>
-                  {conversation.contact_phone && (
-                    <div className="text-xs text-gray-500 truncate">{conversation.contact_phone}</div>
-                  )}
-                  <div className="mt-1">
-                    <Badge variant="outline" className="text-xs">
-                      {conversation.channel === 'whatsapp' ? 'WhatsApp' : conversation.channel}
-                    </Badge>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-medium text-gray-900 truncate">
+                        {conversation.contact_name || 'Sin nombre'}
+                      </h3>
+                      <span className="text-xs text-gray-500">
+                        {conversation.last_message_at ? 
+                          new Date(conversation.last_message_at).toLocaleTimeString('es-ES', { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          }) : 
+                          ''
+                        }
+                      </span>
+                    </div>
+                    {conversation.contact_phone && (
+                      <div className="text-xs text-gray-500 truncate">{conversation.contact_phone}</div>
+                    )}
+                    <div className="mt-1">
+                      <Badge variant="outline" className="text-xs">
+                        {conversation.channel === 'whatsapp' ? 'WhatsApp' : conversation.channel}
+                      </Badge>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
 
@@ -169,6 +192,10 @@ export const Conversations: React.FC = () => {
             <div className="flex-1 p-4 overflow-y-auto space-y-4">
               {messagesLoading ? (
                 <div className="flex items-center justify-center">Cargando mensajes...</div>
+              ) : conversationMessages.length === 0 ? (
+                <div className="flex items-center justify-center text-gray-500">
+                  No hay mensajes en esta conversación
+                </div>
               ) : (
                 conversationMessages.map((message) => (
                   <div
@@ -222,6 +249,11 @@ export const Conversations: React.FC = () => {
                         {message.sender_type === 'contact' && message.whatsapp_number && (
                           <p className="text-xs ml-2 text-gray-500">
                             {message.whatsapp_number}
+                          </p>
+                        )}
+                        {message.instancia && (
+                          <p className="text-xs ml-2 text-gray-400">
+                            {message.instancia}
                           </p>
                         )}
                       </div>
