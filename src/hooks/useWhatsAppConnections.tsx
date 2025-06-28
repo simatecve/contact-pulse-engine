@@ -238,8 +238,8 @@ export const useWhatsAppConnections = () => {
 
       console.log('Resultado del estatus:', result);
       
-      // Si el estatus es "conectado" o "correcto", actualizar en la base de datos
-      if (result.status === 'conectado' || result.status === 'correcto' || result.status === 'connected') {
+      // Si el estatus es "open", "conectado" o "correcto", actualizar en la base de datos
+      if (result.status === 'open' || result.status === 'conectado' || result.status === 'correcto' || result.status === 'connected') {
         const { error } = await supabase
           .from('whatsapp_connections')
           .update({ status: 'connected' })
