@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from './use-toast';
+import { useEffect } from 'react';
 
 export interface Conversation {
   id: string;
@@ -35,6 +36,45 @@ export interface ConversationFormData {
 export const useConversations = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+
+  // Configurar realtime para conversaciones
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('conversations-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'conversations',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('Nueva conversación:', payload.new);
+          queryClient.invalidateQueries({ queryKey: ['conversations'] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'conversations',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('Conversación actualizada:', payload.new);
+          queryClient.invalidateQueries({ queryKey: ['conversations'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, queryClient]);
 
   const fetchConversations = async (): Promise<Conversation[]> => {
     if (!user) return [];
@@ -96,12 +136,13 @@ export const useConversations = () => {
     queryKey: ['conversations', user?.id],
     queryFn: fetchConversations,
     enabled: !!user,
+    refetchInterval: false, // Usar realtime en lugar de polling
   });
 
   const createConversationMutation = useMutation({
     mutationFn: createConversation,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      // Realtime se encarga de actualizar
       toast({
         title: "Conversación creada",
         description: "La conversación se ha creado exitosamente.",
@@ -119,7 +160,7 @@ export const useConversations = () => {
   const updateConversationMutation = useMutation({
     mutationFn: updateConversation,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      // Realtime se encarga de actualizar
     },
     onError: (error) => {
       toast({

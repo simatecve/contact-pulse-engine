@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from './use-toast';
+import { useEffect } from 'react';
 
 export interface Message {
   id: string;
@@ -34,6 +35,63 @@ export interface MessageFormData {
 export const useMessages = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+
+  // Configurar realtime para mensajes
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('messages-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages'
+        },
+        (payload) => {
+          console.log('Nuevo mensaje recibido:', payload.new);
+          
+          // Invalidar las queries de mensajes para refrescar la UI
+          queryClient.invalidateQueries({ queryKey: ['messages'] });
+          
+          // Si es un mensaje de una conversación específica, invalidar esa query también
+          if (payload.new.conversation_id) {
+            queryClient.invalidateQueries({ 
+              queryKey: ['messages', 'conversation', payload.new.conversation_id] 
+            });
+          }
+          
+          // También invalidar conversaciones para actualizar el último mensaje
+          queryClient.invalidateQueries({ queryKey: ['conversations'] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages'
+        },
+        (payload) => {
+          console.log('Mensaje actualizado:', payload.new);
+          
+          // Invalidar queries para refrescar
+          queryClient.invalidateQueries({ queryKey: ['messages'] });
+          
+          if (payload.new.conversation_id) {
+            queryClient.invalidateQueries({ 
+              queryKey: ['messages', 'conversation', payload.new.conversation_id] 
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, queryClient]);
 
   const fetchMessages = async (conversationId?: string): Promise<Message[]> => {
     if (!user) return [];
@@ -105,14 +163,16 @@ export const useMessages = () => {
       queryKey: ['messages', 'conversation', conversationId],
       queryFn: () => fetchMessages(conversationId),
       enabled: !!user && !!conversationId,
+      refetchInterval: false, // Deshabilitar polling ya que usamos realtime
     });
   };
 
   const createMessageMutation = useMutation({
     mutationFn: createMessage,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['messages'] });
-      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      // No es necesario invalidar aquí ya que realtime se encarga
+      // queryClient.invalidateQueries({ queryKey: ['messages'] });
+      // queryClient.invalidateQueries({ queryKey: ['conversations'] });
     },
     onError: (error) => {
       toast({
@@ -126,7 +186,7 @@ export const useMessages = () => {
   const updateMessageMutation = useMutation({
     mutationFn: updateMessage,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['messages'] });
+      // Realtime se encarga de las actualizaciones
     },
     onError: (error) => {
       toast({

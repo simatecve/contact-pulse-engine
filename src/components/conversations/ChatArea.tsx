@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { ConversationHeader } from './ConversationHeader';
 import { MessageBubble } from './MessageBubble';
 import { MessageInput } from './MessageInput';
@@ -25,6 +25,13 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   onSendMessage,
   onDownloadAttachment
 }) => {
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Scroll automático cuando llegan nuevos mensajes
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
   if (!selectedConversation) {
     return (
       <div className="flex-1 flex items-center justify-center text-gray-500">
@@ -46,13 +53,17 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             No hay mensajes en esta conversación
           </div>
         ) : (
-          messages.map((message) => (
-            <MessageBubble
-              key={message.id}
-              message={message}
-              onDownloadAttachment={onDownloadAttachment}
-            />
-          ))
+          <>
+            {messages.map((message) => (
+              <MessageBubble
+                key={message.id}
+                message={message}
+                onDownloadAttachment={onDownloadAttachment}
+              />
+            ))}
+            {/* Elemento invisible para scroll automático */}
+            <div ref={messagesEndRef} />
+          </>
         )}
       </div>
 
