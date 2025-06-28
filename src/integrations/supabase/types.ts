@@ -449,31 +449,43 @@ export type Database = {
       }
       messages: {
         Row: {
+          attachment_url: string | null
+          contact_name: string | null
           content: string
           conversation_id: string
           id: string
           is_read: boolean | null
           message_type: string | null
+          pushname: string | null
           sender_type: string
           sent_at: string | null
+          whatsapp_number: string | null
         }
         Insert: {
+          attachment_url?: string | null
+          contact_name?: string | null
           content: string
           conversation_id: string
           id?: string
           is_read?: boolean | null
           message_type?: string | null
+          pushname?: string | null
           sender_type: string
           sent_at?: string | null
+          whatsapp_number?: string | null
         }
         Update: {
+          attachment_url?: string | null
+          contact_name?: string | null
           content?: string
           conversation_id?: string
           id?: string
           is_read?: boolean | null
           message_type?: string | null
+          pushname?: string | null
           sender_type?: string
           sent_at?: string | null
+          whatsapp_number?: string | null
         }
         Relationships: [
           {

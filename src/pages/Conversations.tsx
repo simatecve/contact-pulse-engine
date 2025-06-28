@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Search, MoreVertical, Phone, Video, Send, Paperclip, Smile } from 'lucide-react';
+import { Search, MoreVertical, Phone, Video, Send, Paperclip, Smile, Download } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,8 @@ const conversations = [
   {
     id: 1,
     name: 'Juan Pérez',
+    whatsapp_number: '+34123456789',
+    pushname: 'Juan P',
     lastMessage: 'Hola, me interesa conocer más sobre sus servicios',
     time: '10:30',
     unread: 2,
@@ -19,6 +21,8 @@ const conversations = [
   {
     id: 2,
     name: 'María González',
+    whatsapp_number: '+34987654321',
+    pushname: 'María G',
     lastMessage: 'Perfecto, espero su propuesta',
     time: '09:45',
     unread: 0,
@@ -28,6 +32,8 @@ const conversations = [
   {
     id: 3,
     name: 'Carlos Rodriguez',
+    whatsapp_number: '+34555666777',
+    pushname: 'Carlos R',
     lastMessage: '¿Cuándo podemos agendar una reunión?',
     time: 'Ayer',
     unread: 1,
@@ -40,29 +46,45 @@ const messages = [
   {
     id: 1,
     sender: 'Juan Pérez',
+    whatsapp_number: '+34123456789',
+    pushname: 'Juan P',
+    contact_name: 'Juan Pérez',
     content: 'Hola, me interesa conocer más sobre sus servicios',
     time: '10:25',
-    type: 'received'
+    type: 'received',
+    attachment_url: null
   },
   {
     id: 2,
     sender: 'Yo',
+    whatsapp_number: null,
+    pushname: null,
+    contact_name: null,
     content: '¡Hola Juan! Claro, estaré encantado de ayudarte. ¿Qué tipo de servicio te interesa específicamente?',
     time: '10:26',
-    type: 'sent'
+    type: 'sent',
+    attachment_url: null
   },
   {
     id: 3,
     sender: 'Juan Pérez',
+    whatsapp_number: '+34123456789',
+    pushname: 'Juan P',
+    contact_name: 'Juan Pérez',
     content: 'Estoy buscando una solución de CRM para mi empresa',
     time: '10:30',
-    type: 'received'
+    type: 'received',
+    attachment_url: 'https://example.com/document.pdf'
   }
 ];
 
 export const Conversations: React.FC = () => {
   const [selectedConversation, setSelectedConversation] = useState(conversations[0]);
   const [newMessage, setNewMessage] = useState('');
+
+  const handleDownloadAttachment = (url: string) => {
+    window.open(url, '_blank');
+  };
 
   return (
     <div className="h-full flex">
@@ -103,6 +125,12 @@ export const Conversations: React.FC = () => {
                     <h3 className="text-sm font-medium text-gray-900 truncate">{conversation.name}</h3>
                     <span className="text-xs text-gray-500">{conversation.time}</span>
                   </div>
+                  {conversation.pushname && (
+                    <div className="text-xs text-gray-500 truncate">@{conversation.pushname}</div>
+                  )}
+                  {conversation.whatsapp_number && (
+                    <div className="text-xs text-gray-500 truncate">{conversation.whatsapp_number}</div>
+                  )}
                   <div className="flex items-center justify-between mt-1">
                     <p className="text-sm text-gray-600 truncate">{conversation.lastMessage}</p>
                     {conversation.unread > 0 && (
@@ -133,9 +161,21 @@ export const Conversations: React.FC = () => {
             </div>
             <div>
               <h2 className="font-medium text-gray-900">{selectedConversation.name}</h2>
-              <p className="text-sm text-gray-500">
-                {selectedConversation.status === 'online' ? 'En línea' : 'Desconectado'}
-              </p>
+              <div className="flex items-center space-x-2 text-sm text-gray-500">
+                <span>{selectedConversation.status === 'online' ? 'En línea' : 'Desconectado'}</span>
+                {selectedConversation.whatsapp_number && (
+                  <>
+                    <span>•</span>
+                    <span>{selectedConversation.whatsapp_number}</span>
+                  </>
+                )}
+                {selectedConversation.pushname && (
+                  <>
+                    <span>•</span>
+                    <span>@{selectedConversation.pushname}</span>
+                  </>
+                )}
+              </div>
             </div>
           </div>
           <div className="flex items-center space-x-2">
@@ -165,12 +205,45 @@ export const Conversations: React.FC = () => {
                     : 'bg-gray-100 text-gray-900'
                 }`}
               >
+                {message.type === 'received' && message.contact_name && (
+                  <div className="text-xs font-medium mb-1 text-gray-600">
+                    {message.contact_name}
+                    {message.pushname && message.pushname !== message.contact_name && (
+                      <span className="ml-1">(@{message.pushname})</span>
+                    )}
+                  </div>
+                )}
+                
                 <p className="text-sm">{message.content}</p>
-                <p className={`text-xs mt-1 ${
-                  message.type === 'sent' ? 'text-blue-100' : 'text-gray-500'
-                }`}>
-                  {message.time}
-                </p>
+                
+                {message.attachment_url && (
+                  <div className="mt-2">
+                    <Button
+                      onClick={() => handleDownloadAttachment(message.attachment_url!)}
+                      variant={message.type === 'sent' ? 'secondary' : 'outline'}
+                      size="sm"
+                      className="text-xs"
+                    >
+                      <Download className="w-3 h-3 mr-1" />
+                      Descargar adjunto
+                    </Button>
+                  </div>
+                )}
+                
+                <div className="flex items-center justify-between mt-1">
+                  <p className={`text-xs ${
+                    message.type === 'sent' ? 'text-blue-100' : 'text-gray-500'
+                  }`}>
+                    {message.time}
+                  </p>
+                  {message.type === 'received' && message.whatsapp_number && (
+                    <p className={`text-xs ml-2 ${
+                      message.type === 'sent' ? 'text-blue-100' : 'text-gray-500'
+                    }`}>
+                      {message.whatsapp_number}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           ))}
