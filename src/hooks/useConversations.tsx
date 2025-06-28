@@ -11,6 +11,8 @@ export interface Conversation {
   contact_name?: string;
   contact_phone?: string;
   contact_email?: string;
+  whatsapp_number?: string;
+  instancia?: string;
   status?: string;
   last_message_at?: string;
   created_at: string;
@@ -22,6 +24,8 @@ export interface ConversationFormData {
   contact_name?: string;
   contact_phone?: string;
   contact_email?: string;
+  whatsapp_number?: string;
+  instancia?: string;
   status?: string;
 }
 

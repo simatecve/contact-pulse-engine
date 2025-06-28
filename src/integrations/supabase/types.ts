@@ -261,10 +261,12 @@ export type Database = {
           contact_phone: string | null
           created_at: string | null
           id: string
+          instancia: string | null
           last_message_at: string | null
           status: string | null
           updated_at: string | null
           user_id: string
+          whatsapp_number: string | null
         }
         Insert: {
           channel: string
@@ -273,10 +275,12 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string | null
           id?: string
+          instancia?: string | null
           last_message_at?: string | null
           status?: string | null
           updated_at?: string | null
           user_id: string
+          whatsapp_number?: string | null
         }
         Update: {
           channel?: string
@@ -285,10 +289,12 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string | null
           id?: string
+          instancia?: string | null
           last_message_at?: string | null
           status?: string | null
           updated_at?: string | null
           user_id?: string
+          whatsapp_number?: string | null
         }
         Relationships: []
       }

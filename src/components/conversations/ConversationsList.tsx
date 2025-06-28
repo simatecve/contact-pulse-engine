@@ -50,10 +50,7 @@ export const ConversationsList: React.FC<ConversationsListProps> = ({
               className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${
                 selectedConversation?.id === conversation.id ? 'bg-blue-50 border-r-2 border-blue-600' : ''
               }`}
-              onClick={() => {
-                console.log('Seleccionando conversación:', conversation);
-                onSelectConversation(conversation);
-              }}
+              onClick={() => onSelectConversation(conversation)}
             >
               <div className="flex items-center space-x-3">
                 <div className="relative">
@@ -84,13 +81,18 @@ export const ConversationsList: React.FC<ConversationsListProps> = ({
                       }
                     </span>
                   </div>
-                  {conversation.contact_phone && (
-                    <div className="text-xs text-gray-500 truncate">{conversation.contact_phone}</div>
+                  {conversation.whatsapp_number && (
+                    <div className="text-xs text-gray-500 truncate">{conversation.whatsapp_number}</div>
                   )}
-                  <div className="mt-1">
+                  <div className="mt-1 flex items-center space-x-2">
                     <Badge variant="outline" className="text-xs">
                       {conversation.channel === 'whatsapp' ? 'WhatsApp' : conversation.channel}
                     </Badge>
+                    {conversation.instancia && (
+                      <Badge variant="secondary" className="text-xs">
+                        {conversation.instancia}
+                      </Badge>
+                    )}
                   </div>
                 </div>
               </div>

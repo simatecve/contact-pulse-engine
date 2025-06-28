@@ -26,10 +26,18 @@ export const ConversationHeader: React.FC<ConversationHeaderProps> = ({ conversa
           </h2>
           <div className="flex items-center space-x-2 text-sm text-gray-500">
             <span>{conversation.status === 'active' ? 'Activo' : 'Inactivo'}</span>
-            {conversation.contact_phone && (
+            {conversation.whatsapp_number && (
               <>
                 <span>•</span>
-                <span>{conversation.contact_phone}</span>
+                <span>{conversation.whatsapp_number}</span>
+              </>
+            )}
+            {conversation.instancia && (
+              <>
+                <span>•</span>
+                <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+                  {conversation.instancia}
+                </span>
               </>
             )}
           </div>

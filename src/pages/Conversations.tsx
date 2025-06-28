@@ -1,41 +1,34 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useConversations } from '@/hooks/useConversations';
 import { useMessages } from '@/hooks/useMessages';
 import { ConversationsList } from '@/components/conversations/ConversationsList';
 import { ChatArea } from '@/components/conversations/ChatArea';
+import type { Conversation } from '@/hooks/useConversations';
 
 export const Conversations: React.FC = () => {
   const { conversations, isLoading: conversationsLoading } = useConversations();
   const { createMessage } = useMessages();
-  const [selectedConversation, setSelectedConversation] = useState(null);
+  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [newMessage, setNewMessage] = useState('');
-  const [conversationMessages, setConversationMessages] = useState([]);
 
-  // Log para debugging - ver qué conversaciones tenemos
-  useEffect(() => {
-    console.log('Conversaciones cargadas:', conversations);
-  }, [conversations]);
+  // Memoizar el primer ID de conversación para evitar recálculos
+  const firstConversationId = conversations.length > 0 ? conversations[0].id : null;
 
-  // Seleccionar la primera conversación por defecto
-  useEffect(() => {
-    if (conversations.length > 0 && !selectedConversation) {
+  // Solo seleccionar la primera conversación si no hay ninguna seleccionada y hay conversaciones disponibles
+  React.useEffect(() => {
+    if (!selectedConversation && firstConversationId && conversations.length > 0) {
       console.log('Seleccionando primera conversación:', conversations[0]);
       setSelectedConversation(conversations[0]);
     }
-  }, [conversations, selectedConversation]);
+  }, [firstConversationId, selectedConversation, conversations]);
 
   // Obtener mensajes de la conversación seleccionada
   const { data: messages = [], isLoading: messagesLoading } = useMessages().getConversationMessages(
     selectedConversation?.id || ''
   );
 
-  useEffect(() => {
-    console.log('Mensajes cargados para conversación:', selectedConversation?.id, messages);
-    setConversationMessages(messages);
-  }, [messages, selectedConversation?.id]);
-
-  const handleSendMessage = async () => {
+  const handleSendMessage = useCallback(async () => {
     if (!newMessage.trim() || !selectedConversation) return;
 
     try {
@@ -54,15 +47,20 @@ export const Conversations: React.FC = () => {
     } catch (error) {
       console.error('Error sending message:', error);
     }
-  };
+  }, [newMessage, selectedConversation, createMessage]);
 
-  const handleDownloadAttachment = (url: string) => {
+  const handleDownloadAttachment = useCallback((url: string) => {
     window.open(url, '_blank');
-  };
+  }, []);
 
-  const handleMessageChange = (message: string) => {
+  const handleMessageChange = useCallback((message: string) => {
     setNewMessage(message);
-  };
+  }, []);
+
+  const handleSelectConversation = useCallback((conversation: Conversation) => {
+    console.log('Seleccionando conversación:', conversation);
+    setSelectedConversation(conversation);
+  }, []);
 
   console.log('Renderizando conversaciones. Total:', conversations.length);
 
@@ -71,13 +69,13 @@ export const Conversations: React.FC = () => {
       <ConversationsList
         conversations={conversations}
         selectedConversation={selectedConversation}
-        onSelectConversation={setSelectedConversation}
+        onSelectConversation={handleSelectConversation}
         isLoading={conversationsLoading}
       />
       
       <ChatArea
         selectedConversation={selectedConversation}
-        messages={conversationMessages}
+        messages={messages}
         messagesLoading={messagesLoading}
         newMessage={newMessage}
         onMessageChange={handleMessageChange}
