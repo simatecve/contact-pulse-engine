@@ -2,7 +2,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
-import { useConversations } from './useConversations';
 import { toast } from './use-toast';
 
 export interface Message {
@@ -34,7 +33,6 @@ export interface MessageFormData {
 
 export const useMessages = () => {
   const { user } = useAuth();
-  const { findOrCreateConversation } = useConversations();
   const queryClient = useQueryClient();
 
   const fetchMessages = async (conversationId?: string): Promise<Message[]> => {
@@ -58,26 +56,10 @@ export const useMessages = () => {
   const createMessage = async (messageData: MessageFormData): Promise<Message> => {
     if (!user) throw new Error('Usuario no autenticado');
 
-    // Si es un mensaje de WhatsApp entrante, crear o encontrar conversación
-    let conversationId = messageData.conversation_id;
-    
-    if (messageData.whatsapp_number && messageData.sender_type === 'contact') {
-      try {
-        const conversation = await findOrCreateConversation.mutateAsync({
-          whatsappNumber: messageData.whatsapp_number,
-          contactName: messageData.contact_name || messageData.pushname
-        });
-        conversationId = conversation.id;
-      } catch (error) {
-        console.error('Error al crear/encontrar conversación:', error);
-      }
-    }
-
     const { data, error } = await supabase
       .from('messages')
       .insert({
         ...messageData,
-        conversation_id: conversationId,
         sent_at: new Date().toISOString(),
       })
       .select()
@@ -85,28 +67,6 @@ export const useMessages = () => {
 
     if (error) throw error;
     return data;
-  };
-
-  const processIncomingWhatsAppMessage = async (
-    whatsappNumber: string,
-    content: string,
-    contactName?: string,
-    pushname?: string,
-    instancia?: string,
-    attachmentUrl?: string
-  ): Promise<Message> => {
-    const messageData: MessageFormData = {
-      sender_type: 'contact',
-      content,
-      message_type: attachmentUrl ? 'media' : 'text',
-      whatsapp_number: whatsappNumber,
-      pushname,
-      contact_name: contactName,
-      attachment_url: attachmentUrl,
-      instancia,
-    };
-
-    return createMessage(messageData);
   };
 
   const updateMessage = async ({ id, ...updateData }: Partial<Message> & { id: string }): Promise<Message> => {
@@ -163,24 +123,6 @@ export const useMessages = () => {
     },
   });
 
-  const processIncomingMessageMutation = useMutation({
-    mutationFn: ({ whatsappNumber, content, contactName, pushname, instancia, attachmentUrl }: {
-      whatsappNumber: string;
-      content: string;
-      contactName?: string;
-      pushname?: string;
-      instancia?: string;
-      attachmentUrl?: string;
-    }) => processIncomingWhatsAppMessage(whatsappNumber, content, contactName, pushname, instancia, attachmentUrl),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['messages'] });
-      queryClient.invalidateQueries({ queryKey: ['conversations'] });
-    },
-    onError: (error) => {
-      console.error('Error al procesar mensaje entrante:', error);
-    },
-  });
-
   const updateMessageMutation = useMutation({
     mutationFn: updateMessage,
     onSuccess: () => {
@@ -215,7 +157,6 @@ export const useMessages = () => {
     error: messagesQuery.error,
     getConversationMessages,
     createMessage: createMessageMutation,
-    processIncomingMessage: processIncomingMessageMutation,
     updateMessage: updateMessageMutation,
     deleteMessage: deleteMessageMutation,
   };

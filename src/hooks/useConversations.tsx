@@ -58,56 +58,6 @@ export const useConversations = () => {
     return data;
   };
 
-  const findOrCreateConversation = async (whatsappNumber: string, contactName?: string): Promise<Conversation> => {
-    if (!user) throw new Error('Usuario no autenticado');
-
-    // Buscar conversación existente por número de WhatsApp
-    const { data: existingConversation, error: fetchError } = await supabase
-      .from('conversations')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('channel', 'whatsapp')
-      .eq('contact_phone', whatsappNumber)
-      .single();
-
-    if (fetchError && fetchError.code !== 'PGRST116') {
-      throw fetchError;
-    }
-
-    if (existingConversation) {
-      // Actualizar last_message_at
-      const { data: updatedConversation, error: updateError } = await supabase
-        .from('conversations')
-        .update({ 
-          last_message_at: new Date().toISOString(),
-          contact_name: contactName || existingConversation.contact_name
-        })
-        .eq('id', existingConversation.id)
-        .select()
-        .single();
-
-      if (updateError) throw updateError;
-      return updatedConversation;
-    }
-
-    // Crear nueva conversación
-    const { data: newConversation, error: createError } = await supabase
-      .from('conversations')
-      .insert({
-        user_id: user.id,
-        channel: 'whatsapp',
-        contact_phone: whatsappNumber,
-        contact_name: contactName,
-        status: 'active',
-        last_message_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
-
-    if (createError) throw createError;
-    return newConversation;
-  };
-
   const updateConversation = async ({ id, ...updateData }: Partial<Conversation> & { id: string }): Promise<Conversation> => {
     if (!user) throw new Error('Usuario no autenticado');
 
@@ -159,17 +109,6 @@ export const useConversations = () => {
     },
   });
 
-  const findOrCreateConversationMutation = useMutation({
-    mutationFn: ({ whatsappNumber, contactName }: { whatsappNumber: string; contactName?: string }) => 
-      findOrCreateConversation(whatsappNumber, contactName),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['conversations'] });
-    },
-    onError: (error) => {
-      console.error('Error al encontrar/crear conversación:', error);
-    },
-  });
-
   const updateConversationMutation = useMutation({
     mutationFn: updateConversation,
     onSuccess: () => {
@@ -207,7 +146,6 @@ export const useConversations = () => {
     isLoading: conversationsQuery.isLoading,
     error: conversationsQuery.error,
     createConversation: createConversationMutation,
-    findOrCreateConversation: findOrCreateConversationMutation,
     updateConversation: updateConversationMutation,
     deleteConversation: deleteConversationMutation,
   };
