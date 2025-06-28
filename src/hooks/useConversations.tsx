@@ -41,8 +41,10 @@ export const useConversations = () => {
   useEffect(() => {
     if (!user) return;
 
+    console.log('Configurando realtime para conversaciones...');
+
     const channel = supabase
-      .channel('conversations-realtime')
+      .channel('conversations-realtime-' + user.id)
       .on(
         'postgres_changes',
         {
@@ -52,7 +54,7 @@ export const useConversations = () => {
           filter: `user_id=eq.${user.id}`
         },
         (payload) => {
-          console.log('Nueva conversación:', payload.new);
+          console.log('Nueva conversación via realtime:', payload.new);
           queryClient.invalidateQueries({ queryKey: ['conversations'] });
         }
       )
@@ -65,13 +67,16 @@ export const useConversations = () => {
           filter: `user_id=eq.${user.id}`
         },
         (payload) => {
-          console.log('Conversación actualizada:', payload.new);
+          console.log('Conversación actualizada via realtime:', payload.new);
           queryClient.invalidateQueries({ queryKey: ['conversations'] });
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Estado del canal de conversaciones:', status);
+      });
 
     return () => {
+      console.log('Desconectando canal de conversaciones...');
       supabase.removeChannel(channel);
     };
   }, [user, queryClient]);
@@ -136,13 +141,15 @@ export const useConversations = () => {
     queryKey: ['conversations', user?.id],
     queryFn: fetchConversations,
     enabled: !!user,
-    refetchInterval: false, // Usar realtime en lugar de polling
+    staleTime: 0, // Siempre considerar los datos como obsoletos para forzar actualizaciones
+    refetchInterval: false,
   });
 
   const createConversationMutation = useMutation({
     mutationFn: createConversation,
-    onSuccess: () => {
-      // Realtime se encarga de actualizar
+    onSuccess: (data) => {
+      console.log('Conversación creada:', data);
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
       toast({
         title: "Conversación creada",
         description: "La conversación se ha creado exitosamente.",
@@ -159,8 +166,10 @@ export const useConversations = () => {
 
   const updateConversationMutation = useMutation({
     mutationFn: updateConversation,
-    onSuccess: () => {
-      // Realtime se encarga de actualizar
+    onSuccess: (data) => {
+      console.log('Conversación actualizada:', data);
+      // Forzar invalidación inmediata
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
     },
     onError: (error) => {
       toast({

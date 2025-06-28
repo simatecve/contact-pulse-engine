@@ -40,8 +40,10 @@ export const useMessages = () => {
   useEffect(() => {
     if (!user) return;
 
+    console.log('Configurando realtime para mensajes...');
+    
     const channel = supabase
-      .channel('messages-realtime')
+      .channel('messages-realtime-' + user.id)
       .on(
         'postgres_changes',
         {
@@ -50,17 +52,10 @@ export const useMessages = () => {
           table: 'messages'
         },
         (payload) => {
-          console.log('Nuevo mensaje recibido:', payload.new);
+          console.log('Nuevo mensaje recibido via realtime:', payload.new);
           
-          // Invalidar las queries de mensajes para refrescar la UI
+          // Invalidar inmediatamente todas las queries de mensajes
           queryClient.invalidateQueries({ queryKey: ['messages'] });
-          
-          // Si es un mensaje de una conversación específica, invalidar esa query también
-          if (payload.new.conversation_id) {
-            queryClient.invalidateQueries({ 
-              queryKey: ['messages', 'conversation', payload.new.conversation_id] 
-            });
-          }
           
           // También invalidar conversaciones para actualizar el último mensaje
           queryClient.invalidateQueries({ queryKey: ['conversations'] });
@@ -74,9 +69,8 @@ export const useMessages = () => {
           table: 'messages'
         },
         (payload) => {
-          console.log('Mensaje actualizado:', payload.new);
+          console.log('Mensaje actualizado via realtime:', payload.new);
           
-          // Invalidar queries para refrescar
           queryClient.invalidateQueries({ queryKey: ['messages'] });
           
           if (payload.new.conversation_id) {
@@ -86,9 +80,12 @@ export const useMessages = () => {
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Estado del canal de mensajes:', status);
+      });
 
     return () => {
+      console.log('Desconectando canal de mensajes...');
       supabase.removeChannel(channel);
     };
   }, [user, queryClient]);
@@ -156,6 +153,8 @@ export const useMessages = () => {
     queryKey: ['messages', user?.id],
     queryFn: () => fetchMessages(),
     enabled: !!user,
+    staleTime: 0, // Siempre considerar los datos como obsoletos para forzar actualizaciones
+    refetchInterval: false,
   });
 
   const getConversationMessages = (conversationId: string) => {
@@ -163,18 +162,21 @@ export const useMessages = () => {
       queryKey: ['messages', 'conversation', conversationId],
       queryFn: () => fetchMessages(conversationId),
       enabled: !!user && !!conversationId,
-      refetchInterval: false, // Deshabilitar polling ya que usamos realtime
+      staleTime: 0, // Siempre considerar los datos como obsoletos
+      refetchInterval: false,
     });
   };
 
   const createMessageMutation = useMutation({
     mutationFn: createMessage,
-    onSuccess: () => {
-      // No es necesario invalidar aquí ya que realtime se encarga
-      // queryClient.invalidateQueries({ queryKey: ['messages'] });
-      // queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    onSuccess: (data) => {
+      console.log('Mensaje creado exitosamente:', data);
+      // Las invalidaciones se manejan via realtime, pero forzamos una adicional por si acaso
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
     },
     onError: (error) => {
+      console.error('Error creating message:', error);
       toast({
         title: "Error",
         description: `Error al crear mensaje: ${error.message}`,
