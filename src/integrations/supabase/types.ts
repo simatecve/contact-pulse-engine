@@ -261,8 +261,10 @@ export type Database = {
           contact_phone: string | null
           created_at: string | null
           id: string
+          instance_color: string | null
           instancia: string | null
           last_message_at: string | null
+          last_message_content: string | null
           status: string | null
           updated_at: string | null
           user_id: string
@@ -275,8 +277,10 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string | null
           id?: string
+          instance_color?: string | null
           instancia?: string | null
           last_message_at?: string | null
+          last_message_content?: string | null
           status?: string | null
           updated_at?: string | null
           user_id: string
@@ -289,8 +293,10 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string | null
           id?: string
+          instance_color?: string | null
           instancia?: string | null
           last_message_at?: string | null
+          last_message_content?: string | null
           status?: string | null
           updated_at?: string | null
           user_id?: string

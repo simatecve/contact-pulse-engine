@@ -13,8 +13,10 @@ export interface Conversation {
   contact_email?: string;
   whatsapp_number?: string;
   instancia?: string;
+  instance_color?: string;
   status?: string;
   last_message_at?: string;
+  last_message_content?: string;
   created_at: string;
   updated_at: string;
 }
@@ -26,6 +28,7 @@ export interface ConversationFormData {
   contact_email?: string;
   whatsapp_number?: string;
   instancia?: string;
+  instance_color?: string;
   status?: string;
 }
 

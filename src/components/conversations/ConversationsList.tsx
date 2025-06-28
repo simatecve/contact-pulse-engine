@@ -54,8 +54,11 @@ export const ConversationsList: React.FC<ConversationsListProps> = ({
             >
               <div className="flex items-center space-x-3">
                 <div className="relative">
-                  <div className="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center">
-                    <span className="text-sm font-medium text-gray-700">
+                  <div 
+                    className="w-12 h-12 rounded-full flex items-center justify-center text-white font-medium"
+                    style={{ backgroundColor: conversation.instance_color || '#3B82F6' }}
+                  >
+                    <span className="text-sm">
                       {conversation.contact_name ? 
                         conversation.contact_name.split(' ').map(n => n[0]).join('') :
                         'W'
@@ -81,6 +84,11 @@ export const ConversationsList: React.FC<ConversationsListProps> = ({
                       }
                     </span>
                   </div>
+                  {conversation.last_message_content && (
+                    <p className="text-xs text-gray-600 truncate mt-1">
+                      {conversation.last_message_content}
+                    </p>
+                  )}
                   {conversation.whatsapp_number && (
                     <div className="text-xs text-gray-500 truncate">{conversation.whatsapp_number}</div>
                   )}
@@ -89,7 +97,15 @@ export const ConversationsList: React.FC<ConversationsListProps> = ({
                       {conversation.channel === 'whatsapp' ? 'WhatsApp' : conversation.channel}
                     </Badge>
                     {conversation.instancia && (
-                      <Badge variant="secondary" className="text-xs">
+                      <Badge 
+                        variant="secondary" 
+                        className="text-xs"
+                        style={{ 
+                          backgroundColor: `${conversation.instance_color || '#3B82F6'}20`,
+                          color: conversation.instance_color || '#3B82F6',
+                          borderColor: conversation.instance_color || '#3B82F6'
+                        }}
+                      >
                         {conversation.instancia}
                       </Badge>
                     )}
