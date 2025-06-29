@@ -17,6 +17,8 @@ export interface UserRole {
     first_name: string | null;
     last_name: string | null;
     email: string | null;
+    phone: string | null;
+    company: string | null;
   };
 }
 
@@ -26,6 +28,27 @@ export interface Permission {
   description: string | null;
   module: string;
   action: string;
+}
+
+export interface UserPermission {
+  id: string;
+  user_id: string;
+  permission_id: string;
+  granted_by: string | null;
+  granted_at: string;
+  is_active: boolean;
+  permissions?: Permission;
+}
+
+export interface CreateUserData {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  company?: string;
+  role: AppRole;
+  permissions?: string[];
 }
 
 export const useUserRoles = () => {
@@ -52,7 +75,7 @@ export const useUserRoles = () => {
     if (!user) return false;
     
     const { data, error } = await supabase
-      .rpc('has_permission', { 
+      .rpc('has_permission_enhanced', { 
         _user_id: user.id, 
         _permission_name: permission 
       });
@@ -65,7 +88,7 @@ export const useUserRoles = () => {
     return data || false;
   };
 
-  // Obtener todos los usuarios con sus roles (solo para admins)
+  // Obtener todos los usuarios con sus roles
   const { data: allUsers = [], isLoading: isLoadingUsers } = useQuery({
     queryKey: ['all-users-roles'],
     queryFn: async () => {
@@ -83,13 +106,19 @@ export const useUserRoles = () => {
         userRoles.map(async (userRole) => {
           const { data: profile } = await supabase
             .from('profiles')
-            .select('first_name, last_name, email')
+            .select('first_name, last_name, email, phone, company')
             .eq('id', userRole.user_id)
             .single();
 
           return {
             ...userRole,
-            profiles: profile || { first_name: null, last_name: null, email: null }
+            profiles: profile || { 
+              first_name: null, 
+              last_name: null, 
+              email: null,
+              phone: null,
+              company: null
+            }
           };
         })
       );
@@ -137,10 +166,58 @@ export const useUserRoles = () => {
     enabled: !!user && currentUserRole === 'admin'
   });
 
-  // Crear nuevo usuario (invitación)
+  // Obtener permisos individuales de un usuario
+  const getUserPermissions = useQuery({
+    queryKey: ['user-permissions'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('user_permissions')
+        .select(`
+          *,
+          permissions (
+            name,
+            description,
+            module,
+            action
+          )
+        `)
+        .eq('is_active', true);
+
+      if (error) throw error;
+      return data as UserPermission[];
+    },
+    enabled: !!user && currentUserRole === 'admin'
+  });
+
+  // Crear nuevo usuario completo
+  const createUser = useMutation({
+    mutationFn: async (userData: CreateUserData) => {
+      const { data, error } = await supabase.functions.invoke('admin-create-user', {
+        body: userData
+      });
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['all-users-roles'] });
+      toast({
+        title: "Usuario creado",
+        description: "El usuario se creó exitosamente.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo crear el usuario.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Crear nuevo usuario (invitación) - mantener método anterior para compatibilidad
   const inviteUser = useMutation({
     mutationFn: async ({ email, role }: { email: string; role: AppRole }) => {
-      // Primero invitamos al usuario
       const { data: inviteData, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(
         email,
         {
@@ -150,7 +227,6 @@ export const useUserRoles = () => {
 
       if (inviteError) throw inviteError;
 
-      // Luego asignamos el rol
       if (inviteData.user) {
         const { error: roleError } = await supabase
           .from('user_roles')
@@ -210,6 +286,48 @@ export const useUserRoles = () => {
     }
   });
 
+  // Asignar permiso individual a usuario
+  const assignPermissionToUser = useMutation({
+    mutationFn: async ({ userId, permissionId }: { userId: string; permissionId: string }) => {
+      const { error } = await supabase
+        .from('user_permissions')
+        .insert({
+          user_id: userId,
+          permission_id: permissionId,
+          granted_by: user?.id
+        });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-permissions'] });
+      toast({
+        title: "Permiso asignado",
+        description: "El permiso se asignó correctamente al usuario.",
+      });
+    }
+  });
+
+  // Revocar permiso individual de usuario
+  const revokePermissionFromUser = useMutation({
+    mutationFn: async ({ userId, permissionId }: { userId: string; permissionId: string }) => {
+      const { error } = await supabase
+        .from('user_permissions')
+        .update({ is_active: false })
+        .eq('user_id', userId)
+        .eq('permission_id', permissionId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-permissions'] });
+      toast({
+        title: "Permiso revocado",
+        description: "El permiso se revocó correctamente del usuario.",
+      });
+    }
+  });
+
   // Desactivar usuario
   const deactivateUser = useMutation({
     mutationFn: async (userId: string) => {
@@ -238,9 +356,13 @@ export const useUserRoles = () => {
     isLoadingPermissions,
     rolePermissions,
     refetchRolePermissions,
+    userPermissions: getUserPermissions.data || [],
     hasPermission,
+    createUser,
     inviteUser,
     updateUserRole,
+    assignPermissionToUser,
+    revokePermissionFromUser,
     deactivateUser
   };
 };

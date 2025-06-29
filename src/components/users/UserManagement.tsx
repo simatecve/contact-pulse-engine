@@ -9,7 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { useUserRoles, AppRole } from '@/hooks/useUserRoles';
-import { UserPlus, Settings, Trash2 } from 'lucide-react';
+import { CreateUserForm } from './CreateUserForm';
+import { UserPlus, Settings, Trash2, UserCheck } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 const roleLabels: Record<AppRole, string> = {
@@ -36,6 +37,7 @@ export const UserManagement: React.FC = () => {
     deactivateUser
   } = useUserRoles();
 
+  const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<AppRole>('viewer');
@@ -105,59 +107,74 @@ export const UserManagement: React.FC = () => {
           <p className="text-gray-600">Administra usuarios y roles del sistema</p>
         </div>
         
-        <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <UserPlus className="w-4 h-4 mr-2" />
-              Invitar Usuario
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Invitar Nuevo Usuario</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleInviteUser} className="space-y-4">
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  placeholder="usuario@empresa.com"
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="role">Rol</Label>
-                <Select value={inviteRole} onValueChange={(value: AppRole) => setInviteRole(value)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="viewer">Visualizador</SelectItem>
-                    <SelectItem value="agent">Agente</SelectItem>
-                    <SelectItem value="manager">Gerente</SelectItem>
-                    <SelectItem value="admin">Administrador</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex justify-end space-x-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsInviteDialogOpen(false)}
-                >
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={inviteUser.isPending}>
-                  {inviteUser.isPending ? 'Invitando...' : 'Invitar'}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <div className="flex space-x-2">
+          {/* Botón para crear usuario completo */}
+          <Button onClick={() => setIsCreateUserOpen(true)}>
+            <UserCheck className="w-4 h-4 mr-2" />
+            Crear Usuario
+          </Button>
+
+          {/* Botón para invitar usuario (método anterior) */}
+          <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <UserPlus className="w-4 h-4 mr-2" />
+                Invitar Usuario
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Invitar Nuevo Usuario</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleInviteUser} className="space-y-4">
+                <div>
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="usuario@empresa.com"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="role">Rol</Label>
+                  <Select value={inviteRole} onValueChange={(value: AppRole) => setInviteRole(value)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="viewer">Visualizador</SelectItem>
+                      <SelectItem value="agent">Agente</SelectItem>
+                      <SelectItem value="manager">Gerente</SelectItem>
+                      <SelectItem value="admin">Administrador</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsInviteDialogOpen(false)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={inviteUser.isPending}>
+                    {inviteUser.isPending ? 'Invitando...' : 'Invitar'}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
+
+      {/* Formulario de creación de usuario */}
+      <CreateUserForm 
+        open={isCreateUserOpen} 
+        onOpenChange={setIsCreateUserOpen} 
+      />
 
       <Card>
         <CardHeader>
@@ -175,6 +192,8 @@ export const UserManagement: React.FC = () => {
                 <TableRow>
                   <TableHead>Usuario</TableHead>
                   <TableHead>Email</TableHead>
+                  <TableHead>Teléfono</TableHead>
+                  <TableHead>Empresa</TableHead>
                   <TableHead>Rol</TableHead>
                   <TableHead>Fecha Asignación</TableHead>
                   <TableHead>Acciones</TableHead>
@@ -193,6 +212,8 @@ export const UserManagement: React.FC = () => {
                       </div>
                     </TableCell>
                     <TableCell>{userRole.profiles?.email || 'Sin email'}</TableCell>
+                    <TableCell>{userRole.profiles?.phone || '-'}</TableCell>
+                    <TableCell>{userRole.profiles?.company || '-'}</TableCell>
                     <TableCell>
                       <Badge className={roleColors[userRole.role]}>
                         {roleLabels[userRole.role]}
