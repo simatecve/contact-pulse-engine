@@ -13,10 +13,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Target,
-  Smartphone
+  Smartphone,
+  UserCog,
+  Shield
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useUserRoles } from '@/hooks/useUserRoles';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -24,18 +27,42 @@ interface SidebarProps {
 }
 
 const menuItems = [
-  { icon: Home, label: 'Dashboard', path: '/' },
-  { icon: MessageSquare, label: 'Conversaciones', path: '/conversations' },
-  { icon: Users, label: 'Contactos & Listas', path: '/contacts' },
-  { icon: Target, label: 'Leads', path: '/leads' },
-  { icon: Send, label: 'Campañas', path: '/campaigns' },
-  { icon: Smartphone, label: 'Conexión', path: '/whatsapp-connections' },
-  { icon: PieChart, label: 'Reportes', path: '/reports' },
-  { icon: Bot, label: 'Agentes IA', path: '/ai-agents' },
-  { icon: Settings, label: 'Configuración', path: '/settings' },
+  { icon: Home, label: 'Dashboard', path: '/', permission: 'dashboard.view' },
+  { icon: MessageSquare, label: 'Conversaciones', path: '/conversations', permission: 'conversations.view' },
+  { icon: Users, label: 'Contactos & Listas', path: '/contacts', permission: 'contacts.view' },
+  { icon: Target, label: 'Leads', path: '/leads', permission: 'leads.view' },
+  { icon: Send, label: 'Campañas', path: '/campaigns', permission: 'campaigns.view' },
+  { icon: Smartphone, label: 'Conexión', path: '/whatsapp-connections', permission: 'whatsapp.view' },
+  { icon: PieChart, label: 'Reportes', path: '/reports', permission: 'reports.view' },
+  { icon: Bot, label: 'Agentes IA', path: '/ai-agents', permission: 'ai.manage' },
+  { icon: UserCog, label: 'Usuarios', path: '/user-management', permission: 'users.view' },
+  { icon: Shield, label: 'Permisos', path: '/permission-matrix', permission: 'users.view' },
+  { icon: Settings, label: 'Configuración', path: '/settings', permission: 'settings.view' },
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
+  const { hasPermission, currentUserRole } = useUserRoles();
+  const [permissions, setPermissions] = React.useState<Record<string, boolean>>({});
+
+  React.useEffect(() => {
+    const checkPermissions = async () => {
+      const permissionChecks = await Promise.all(
+        menuItems.map(async (item) => ({
+          [item.permission]: await hasPermission(item.permission)
+        }))
+      );
+      
+      const permissionMap = permissionChecks.reduce((acc, curr) => ({ ...acc, ...curr }), {});
+      setPermissions(permissionMap);
+    };
+
+    if (currentUserRole) {
+      checkPermissions();
+    }
+  }, [currentUserRole, hasPermission]);
+
+  const visibleMenuItems = menuItems.filter(item => permissions[item.permission]);
+
   return (
     <div className={cn(
       "bg-white border-r border-gray-200 h-screen flex flex-col transition-all duration-300",
@@ -64,7 +91,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
       {/* Navigation */}
       <nav className="flex-1 p-2">
         <ul className="space-y-1">
-          {menuItems.map((item) => (
+          {visibleMenuItems.map((item) => (
             <li key={item.path}>
               <NavLink
                 to={item.path}
@@ -90,11 +117,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
         <div className="p-4 border-t border-gray-200">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
-              <span className="text-sm font-medium text-gray-700">AD</span>
+              <span className="text-sm font-medium text-gray-700">
+                {currentUserRole?.charAt(0).toUpperCase() || 'U'}
+              </span>
             </div>
             <div className="flex-1">
-              <p className="text-sm font-medium text-gray-900">Admin User</p>
-              <p className="text-xs text-gray-500">admin@crmpro.com</p>
+              <p className="text-sm font-medium text-gray-900">Usuario</p>
+              <p className="text-xs text-gray-500 capitalize">
+                {currentUserRole === 'admin' ? 'Administrador' : 
+                 currentUserRole === 'manager' ? 'Gerente' :
+                 currentUserRole === 'agent' ? 'Agente' : 'Visualizador'}
+              </p>
             </div>
           </div>
         </div>

@@ -17,6 +17,8 @@ import { WhatsAppConnections } from "./pages/WhatsAppConnections";
 import { Reports } from "./pages/Reports";
 import { AIAgents } from "./pages/AIAgents";
 import { Settings } from "./pages/Settings";
+import { UserManagement } from "./pages/UserManagement";
+import { PermissionMatrix } from "./pages/PermissionMatrix";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -42,6 +44,8 @@ const App = () => (
                     <Route path="/whatsapp-connections" element={<WhatsAppConnections />} />
                     <Route path="/reports" element={<Reports />} />
                     <Route path="/ai-agents" element={<AIAgents />} />
+                    <Route path="/user-management" element={<UserManagement />} />
+                    <Route path="/permission-matrix" element={<PermissionMatrix />} />
                     <Route path="/settings" element={<Settings />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
