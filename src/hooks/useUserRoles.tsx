@@ -69,21 +69,32 @@ export const useUserRoles = () => {
   const { data: allUsers = [], isLoading: isLoadingUsers } = useQuery({
     queryKey: ['all-users-roles'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Primero obtenemos los user_roles
+      const { data: userRoles, error: userRolesError } = await supabase
         .from('user_roles')
-        .select(`
-          *,
-          profiles!user_roles_user_id_fkey (
-            first_name,
-            last_name,
-            email
-          )
-        `)
+        .select('*')
         .eq('is_active', true)
         .order('assigned_at', { ascending: false });
 
-      if (error) throw error;
-      return data as UserRole[];
+      if (userRolesError) throw userRolesError;
+
+      // Luego obtenemos los profiles para cada usuario
+      const usersWithProfiles = await Promise.all(
+        userRoles.map(async (userRole) => {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('first_name, last_name, email')
+            .eq('id', userRole.user_id)
+            .single();
+
+          return {
+            ...userRole,
+            profiles: profile || { first_name: null, last_name: null, email: null }
+          };
+        })
+      );
+
+      return usersWithProfiles as UserRole[];
     },
     enabled: !!user && currentUserRole === 'admin'
   });
