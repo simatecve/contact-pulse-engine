@@ -1,72 +1,83 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { MetricCard } from '@/components/dashboard/MetricCard';
 import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
+import { DashboardCharts } from '@/components/dashboard/DashboardCharts';
+import { TimeFilter } from '@/components/dashboard/TimeFilter';
+import { AlertsPanel } from '@/components/dashboard/AlertsPanel';
 import { MessageSquare, Users, Send, TrendingUp, Bot, Eye } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 
 export const Dashboard: React.FC = () => {
+  const [timeFilter, setTimeFilter] = useState('30');
+  const { data: metrics, isLoading } = useDashboardMetrics(timeFilter);
+
+  const getChangeType = (change: number): 'positive' | 'negative' | 'neutral' => {
+    if (change > 0) return 'positive';
+    if (change < 0) return 'negative';
+    return 'neutral';
+  };
+
   return (
     <div className="space-y-6">
-      {/* Welcome Section */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">¡Bienvenido de vuelta!</h1>
-        <p className="text-gray-600 mt-1">Aquí tienes un resumen de tu actividad reciente</p>
+      {/* Welcome Section with Time Filter */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">¡Bienvenido de vuelta!</h1>
+          <p className="text-gray-600 mt-1">Aquí tienes un resumen de tu actividad reciente</p>
+        </div>
+        <TimeFilter value={timeFilter} onChange={setTimeFilter} />
       </div>
 
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <MetricCard
           title="Conversaciones Activas"
-          value="127"
-          change="+12% vs. semana pasada"
-          changeType="positive"
+          value={metrics?.totalConversations || 0}
+          change={metrics?.conversationsChange}
+          changeType={metrics?.conversationsChange ? getChangeType(metrics.conversationsChange) : undefined}
           icon={MessageSquare}
+          isLoading={isLoading}
         />
         <MetricCard
           title="Nuevos Leads"
-          value="89"
-          change="+23% vs. semana pasada"
-          changeType="positive"
+          value={metrics?.newLeads || 0}
+          change={metrics?.leadsChange}
+          changeType={metrics?.leadsChange ? getChangeType(metrics.leadsChange) : undefined}
           icon={Users}
+          isLoading={isLoading}
         />
         <MetricCard
           title="Campañas Enviadas"
-          value="15"
-          change="-5% vs. semana pasada"
-          changeType="negative"
+          value={metrics?.campaignsSent || 0}
+          change={metrics?.campaignsChange}
+          changeType={metrics?.campaignsChange ? getChangeType(metrics.campaignsChange) : undefined}
           icon={Send}
+          isLoading={isLoading}
         />
         <MetricCard
           title="Tasa de Conversión"
-          value="4.2%"
-          change="+0.8% vs. semana pasada"
-          changeType="positive"
+          value={`${metrics?.conversionRate || 0}%`}
+          change={metrics?.conversionChange}
+          changeType={metrics?.conversionChange ? getChangeType(metrics.conversionChange) : undefined}
           icon={TrendingUp}
+          isLoading={isLoading}
         />
       </div>
 
+      {/* Charts Section */}
+      <DashboardCharts timeFilter={timeFilter} />
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Chart Section */}
+        {/* Activity Feed */}
         <div className="lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Rendimiento de Campañas</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center">
-                <div className="text-center">
-                  <TrendingUp className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-500">Gráfico de rendimiento próximamente</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <ActivityFeed />
         </div>
 
-        {/* Activity Feed */}
+        {/* Alerts Panel */}
         <div>
-          <ActivityFeed />
+          <AlertsPanel />
         </div>
       </div>
 
