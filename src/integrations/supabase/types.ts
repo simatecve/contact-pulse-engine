@@ -9,6 +9,53 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      ai_agents: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          prompt_template: string | null
+          response_settings: Json | null
+          updated_at: string
+          user_id: string
+          whatsapp_connection_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          prompt_template?: string | null
+          response_settings?: Json | null
+          updated_at?: string
+          user_id: string
+          whatsapp_connection_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          prompt_template?: string | null
+          response_settings?: Json | null
+          updated_at?: string
+          user_id?: string
+          whatsapp_connection_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agents_whatsapp_connection_id_fkey"
+            columns: ["whatsapp_connection_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaign_ab_tests: {
         Row: {
           campaign_id: string
