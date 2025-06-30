@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { NotificationPreferences, Notification } from '@/types/notifications';
+import type { NotificationPreferences, Notification } from '@/types/notifications';
 import { playNotificationSound } from '@/utils/notificationUtils';
 
 export const useNotificationRealtime = (preferences: NotificationPreferences | null, sounds: any[]) => {
@@ -32,7 +32,7 @@ export const useNotificationRealtime = (preferences: NotificationPreferences | n
             if (preferences?.push_notifications && 'Notification' in window) {
               try {
                 const notification = payload.new as Notification;
-                new Notification(notification.title, {
+                new window.Notification(notification.title, {
                   body: notification.message,
                   icon: '/favicon.ico'
                 });
