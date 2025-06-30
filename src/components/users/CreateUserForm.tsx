@@ -9,8 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useUserRoles, AppRole, CreateUserData } from '@/hooks/useUserRoles';
-import { Eye, EyeOff } from 'lucide-react';
+import { useEmailValidation } from '@/hooks/useEmailValidation';
+import { Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
 
 interface CreateUserFormProps {
   open: boolean;
@@ -23,9 +25,16 @@ export const CreateUserForm: React.FC<CreateUserFormProps> = ({ open, onOpenChan
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
   const [selectedRole, setSelectedRole] = useState<AppRole>('viewer');
 
-  const { register, handleSubmit, reset, setValue, formState: { errors, isSubmitting } } = useForm<CreateUserData>();
+  const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } = useForm<CreateUserData>();
+  
+  const watchedEmail = watch('email', '');
+  const { isChecking, emailExists, error: emailError } = useEmailValidation(watchedEmail);
 
   const onSubmit = async (data: CreateUserData) => {
+    if (emailExists) {
+      return;
+    }
+
     const userData: CreateUserData = {
       ...data,
       role: selectedRole,
@@ -58,6 +67,19 @@ export const CreateUserForm: React.FC<CreateUserFormProps> = ({ open, onOpenChan
     acc[permission.module].push(permission);
     return acc;
   }, {} as Record<string, any[]>);
+
+  const getEmailValidationIcon = () => {
+    if (isChecking) {
+      return <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600" />;
+    }
+    if (emailExists) {
+      return <AlertCircle className="h-4 w-4 text-red-500" />;
+    }
+    if (watchedEmail.includes('@') && !emailExists) {
+      return <CheckCircle className="h-4 w-4 text-green-500" />;
+    }
+    return null;
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -100,20 +122,32 @@ export const CreateUserForm: React.FC<CreateUserFormProps> = ({ open, onOpenChan
 
               <div>
                 <Label htmlFor="email">Email *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  {...register('email', { 
-                    required: 'El email es requerido',
-                    pattern: {
-                      value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                      message: 'Email inválido'
-                    }
-                  })}
-                  placeholder="juan.perez@empresa.com"
-                />
+                <div className="relative">
+                  <Input
+                    id="email"
+                    type="email"
+                    {...register('email', { 
+                      required: 'El email es requerido',
+                      pattern: {
+                        value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                        message: 'Email inválido'
+                      }
+                    })}
+                    placeholder="juan.perez@empresa.com"
+                    className={emailExists ? 'border-red-500' : ''}
+                  />
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    {getEmailValidationIcon()}
+                  </div>
+                </div>
                 {errors.email && (
                   <p className="text-sm text-red-600 mt-1">{errors.email.message}</p>
+                )}
+                {emailExists && (
+                  <p className="text-sm text-red-600 mt-1">Este email ya está registrado</p>
+                )}
+                {emailError && (
+                  <p className="text-sm text-yellow-600 mt-1">{emailError}</p>
                 )}
               </div>
 
@@ -245,6 +279,16 @@ export const CreateUserForm: React.FC<CreateUserFormProps> = ({ open, onOpenChan
             </CardContent>
           </Card>
 
+          {/* Error de creación */}
+          {createUser.error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {createUser.error.message || 'Error al crear el usuario'}
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Botones */}
           <div className="flex justify-end space-x-2">
             <Button
@@ -255,7 +299,10 @@ export const CreateUserForm: React.FC<CreateUserFormProps> = ({ open, onOpenChan
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button 
+              type="submit" 
+              disabled={isSubmitting || emailExists || isChecking}
+            >
               {isSubmitting ? 'Creando...' : 'Crear Usuario'}
             </Button>
           </div>

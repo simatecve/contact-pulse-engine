@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -189,27 +188,57 @@ export const useUserRoles = () => {
     enabled: !!user && currentUserRole === 'admin'
   });
 
-  // Crear nuevo usuario completo
+  // Crear nuevo usuario completo - MEJORADO
   const createUser = useMutation({
     mutationFn: async (userData: CreateUserData) => {
+      console.log('Creating user with data:', userData);
+      
       const { data, error } = await supabase.functions.invoke('admin-create-user', {
         body: userData
       });
 
-      if (error) throw error;
+      console.log('Function response:', { data, error });
+
+      if (error) {
+        console.error('Function invocation error:', error);
+        throw new Error(error.message || 'Error al invocar la función');
+      }
+
+      if (!data?.success) {
+        const errorMessage = data?.error || 'Error desconocido al crear usuario';
+        console.error('User creation failed:', errorMessage);
+        throw new Error(errorMessage);
+      }
+
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['all-users-roles'] });
       toast({
         title: "Usuario creado",
-        description: "El usuario se creó exitosamente.",
+        description: data.message || "El usuario se creó exitosamente.",
       });
     },
     onError: (error: any) => {
+      console.error('CreateUser mutation error:', error);
+      
+      let errorMessage = "No se pudo crear el usuario.";
+      
+      if (error.message) {
+        if (error.message.includes('ya existe') || error.message.includes('already')) {
+          errorMessage = "Ya existe un usuario con este email.";
+        } else if (error.message.includes('permisos') || error.message.includes('permission')) {
+          errorMessage = "No tienes permisos para crear usuarios.";
+        } else if (error.message.includes('campos requeridos')) {
+          errorMessage = "Faltan campos requeridos.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
       toast({
         title: "Error",
-        description: error.message || "No se pudo crear el usuario.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
