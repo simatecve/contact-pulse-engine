@@ -9,6 +9,111 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      campaign_ab_tests: {
+        Row: {
+          campaign_id: string
+          confidence_level: number | null
+          created_at: string
+          end_date: string | null
+          id: string
+          name: string
+          start_date: string | null
+          status: string
+          test_percentage: number
+          updated_at: string
+          winner_variant: string | null
+        }
+        Insert: {
+          campaign_id: string
+          confidence_level?: number | null
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          name: string
+          start_date?: string | null
+          status?: string
+          test_percentage?: number
+          updated_at?: string
+          winner_variant?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          confidence_level?: number | null
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          name?: string
+          start_date?: string | null
+          status?: string
+          test_percentage?: number
+          updated_at?: string
+          winner_variant?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_ab_tests_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_analytics: {
+        Row: {
+          campaign_id: string
+          contact_id: string | null
+          created_at: string
+          event_timestamp: string
+          event_type: string
+          id: string
+          metadata: Json | null
+          variant_id: string | null
+        }
+        Insert: {
+          campaign_id: string
+          contact_id?: string | null
+          created_at?: string
+          event_timestamp?: string
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          variant_id?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          contact_id?: string | null
+          created_at?: string
+          event_timestamp?: string
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_analytics_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_analytics_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_analytics_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaign_attachments: {
         Row: {
           campaign_id: string
@@ -91,6 +196,126 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_schedules: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          error_message: string | null
+          id: string
+          scheduled_at: string
+          sent_at: string | null
+          status: string
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          scheduled_at: string
+          sent_at?: string | null
+          status?: string
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          scheduled_at?: string
+          sent_at?: string | null
+          status?: string
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_schedules_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_segments: {
+        Row: {
+          campaign_id: string
+          contact_count: number | null
+          created_at: string
+          filters: Json
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          campaign_id: string
+          contact_count?: number | null
+          created_at?: string
+          filters: Json
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          campaign_id?: string
+          contact_count?: number | null
+          created_at?: string
+          filters?: Json
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_segments_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_variants: {
+        Row: {
+          ab_test_id: string
+          attachments: Json | null
+          created_at: string
+          id: string
+          message: string
+          subject_line: string | null
+          variant_name: string
+        }
+        Insert: {
+          ab_test_id: string
+          attachments?: Json | null
+          created_at?: string
+          id?: string
+          message: string
+          subject_line?: string | null
+          variant_name: string
+        }
+        Update: {
+          ab_test_id?: string
+          attachments?: Json | null
+          created_at?: string
+          id?: string
+          message?: string
+          subject_line?: string | null
+          variant_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_variants_ab_test_id_fkey"
+            columns: ["ab_test_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_ab_tests"
             referencedColumns: ["id"]
           },
         ]
@@ -504,6 +729,111 @@ export type Database = {
           sender_type?: string
           sent_at?: string | null
           whatsapp_number?: string | null
+        }
+        Relationships: []
+      }
+      notification_preferences: {
+        Row: {
+          created_at: string
+          email_notifications: boolean
+          id: string
+          notification_categories: Json
+          push_notifications: boolean
+          sound_enabled: boolean
+          sound_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email_notifications?: boolean
+          id?: string
+          notification_categories?: Json
+          push_notifications?: boolean
+          sound_enabled?: boolean
+          sound_type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email_notifications?: boolean
+          id?: string
+          notification_categories?: Json
+          push_notifications?: boolean
+          sound_enabled?: boolean
+          sound_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      notification_sounds: {
+        Row: {
+          created_at: string
+          description: string | null
+          file_path: string
+          id: string
+          is_default: boolean
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          file_path: string
+          id?: string
+          is_default?: boolean
+          name: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          file_path?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          action_url: string | null
+          category: string
+          created_at: string
+          id: string
+          is_read: boolean
+          message: string
+          metadata: Json | null
+          read_at: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          action_url?: string | null
+          category?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message: string
+          metadata?: Json | null
+          read_at?: string | null
+          title: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          action_url?: string | null
+          category?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string
+          metadata?: Json | null
+          read_at?: string | null
+          title?: string
+          type?: string
+          user_id?: string
         }
         Relationships: []
       }
