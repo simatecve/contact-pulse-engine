@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -34,37 +35,6 @@ export interface ConversationFormData {
   instance_color?: string;
   status?: string;
 }
-
-const assignAgent = async ({ conversationId, agentId, notes }: { conversationId: string; agentId?: string; notes?: string }): Promise<void> => {
-  if (!user) throw new Error('Usuario no autenticado');
-
-  // Actualizar la conversación
-  const { error: updateError } = await supabase
-    .from('conversations')
-    .update({
-      assigned_agent_id: agentId,
-      assigned_at: agentId ? new Date().toISOString() : null,
-      assigned_by: agentId ? user.id : null,
-    })
-    .eq('id', conversationId)
-    .eq('user_id', user.id);
-
-  if (updateError) throw updateError;
-
-  // Crear registro en el historial de asignaciones
-  if (agentId) {
-    const { error: assignmentError } = await supabase
-      .from('conversation_assignments')
-      .insert({
-        conversation_id: conversationId,
-        agent_id: agentId,
-        assigned_by: user.id,
-        notes: notes,
-      });
-
-    if (assignmentError) throw assignmentError;
-  }
-};
 
 export const useConversations = () => {
   const { user } = useAuth();
@@ -168,6 +138,37 @@ export const useConversations = () => {
       .eq('user_id', user.id);
 
     if (error) throw error;
+  };
+
+  const assignAgent = async ({ conversationId, agentId, notes }: { conversationId: string; agentId?: string; notes?: string }): Promise<void> => {
+    if (!user) throw new Error('Usuario no autenticado');
+
+    // Actualizar la conversación
+    const { error: updateError } = await supabase
+      .from('conversations')
+      .update({
+        assigned_agent_id: agentId,
+        assigned_at: agentId ? new Date().toISOString() : null,
+        assigned_by: agentId ? user.id : null,
+      })
+      .eq('id', conversationId)
+      .eq('user_id', user.id);
+
+    if (updateError) throw updateError;
+
+    // Crear registro en el historial de asignaciones
+    if (agentId) {
+      const { error: assignmentError } = await supabase
+        .from('conversation_assignments')
+        .insert({
+          conversation_id: conversationId,
+          agent_id: agentId,
+          assigned_by: user.id,
+          notes: notes,
+        });
+
+      if (assignmentError) throw assignmentError;
+    }
   };
 
   const conversationsQuery = useQuery({
