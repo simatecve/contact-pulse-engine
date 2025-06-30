@@ -3,7 +3,7 @@ import React from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { NotificationCenter } from '@/components/notifications/NotificationCenter';
+// import { NotificationCenter } from '@/components/notifications/NotificationCenter';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,7 +34,7 @@ export const Header = () => {
         </div>
         
         <div className="flex items-center space-x-4">
-          <NotificationCenter />
+          {/* <NotificationCenter /> */}
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

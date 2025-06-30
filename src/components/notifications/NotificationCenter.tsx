@@ -1,12 +1,11 @@
 
 import React, { useState } from 'react';
-import { Bell, Settings, Check, X } from 'lucide-react';
+import { Bell, Settings, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import { useNotifications } from '@/hooks/useNotifications';
 import { NotificationPreferences } from './NotificationPreferences';
 import { formatDistanceToNow } from 'date-fns';
@@ -20,7 +19,8 @@ export const NotificationCenter: React.FC = () => {
     unreadCount, 
     markAsRead, 
     markAllAsRead, 
-    isLoading 
+    isLoading,
+    error 
   } = useNotifications();
 
   const getNotificationIcon = (type: string) => {
@@ -48,6 +48,12 @@ export const NotificationCenter: React.FC = () => {
         return 'bg-blue-50 border-blue-200';
     }
   };
+
+  // Show error state if there's an error
+  if (error) {
+    console.error('NotificationCenter error:', error);
+    return null; // Fail silently to prevent breaking the app
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -95,7 +101,7 @@ export const NotificationCenter: React.FC = () => {
             <div className="flex justify-center py-4">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
             </div>
-          ) : notifications.length === 0 ? (
+          ) : !notifications || notifications.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               <Bell className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>No tienes notificaciones</p>
@@ -111,11 +117,15 @@ export const NotificationCenter: React.FC = () => {
                       : 'bg-gray-50 border-gray-200'
                   }`}
                   onClick={() => {
-                    if (!notification.is_read) {
-                      markAsRead.mutate(notification.id);
-                    }
-                    if (notification.action_url) {
-                      window.location.href = notification.action_url;
+                    try {
+                      if (!notification.is_read) {
+                        markAsRead.mutate(notification.id);
+                      }
+                      if (notification.action_url) {
+                        window.location.href = notification.action_url;
+                      }
+                    } catch (err) {
+                      console.error('Error handling notification click:', err);
                     }
                   }}
                 >

@@ -43,61 +43,99 @@ export const useNotifications = () => {
   const queryClient = useQueryClient();
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // Fetch notifications
-  const { data: notifications = [], isLoading } = useQuery({
+  // Fetch notifications with error handling
+  const { data: notifications = [], isLoading, error } = useQuery({
     queryKey: ['notifications', user?.id],
     queryFn: async () => {
       if (!user) return [];
       
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+      try {
+        const { data, error } = await supabase
+          .from('notifications')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      return data as Notification[];
+        if (error) {
+          console.error('Error fetching notifications:', error);
+          return [];
+        }
+        
+        return data as Notification[];
+      } catch (err) {
+        console.error('Unexpected error fetching notifications:', err);
+        return [];
+      }
     },
-    enabled: !!user
+    enabled: !!user,
+    retry: 1,
+    refetchOnWindowFocus: false
   });
 
-  // Fetch notification preferences
+  // Fetch notification preferences with error handling
   const { data: preferences } = useQuery({
     queryKey: ['notification-preferences', user?.id],
     queryFn: async () => {
       if (!user) return null;
       
-      const { data, error } = await supabase
-        .from('notification_preferences')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
+      try {
+        const { data, error } = await supabase
+          .from('notification_preferences')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
 
-      if (error && error.code !== 'PGRST116') throw error;
-      return data as NotificationPreferences;
+        if (error && error.code !== 'PGRST116') {
+          console.error('Error fetching preferences:', error);
+          return null;
+        }
+        
+        return data as NotificationPreferences;
+      } catch (err) {
+        console.error('Unexpected error fetching preferences:', err);
+        return null;
+      }
     },
-    enabled: !!user
+    enabled: !!user,
+    retry: 1,
+    refetchOnWindowFocus: false
   });
 
-  // Fetch notification sounds
+  // Fetch notification sounds with error handling
   const { data: sounds = [] } = useQuery({
     queryKey: ['notification-sounds'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('notification_sounds')
-        .select('*')
-        .order('name');
+      try {
+        const { data, error } = await supabase
+          .from('notification_sounds')
+          .select('*')
+          .order('name');
 
-      if (error) throw error;
-      return data as NotificationSound[];
-    }
+        if (error) {
+          console.error('Error fetching sounds:', error);
+          return [];
+        }
+        
+        return data as NotificationSound[];
+      } catch (err) {
+        console.error('Unexpected error fetching sounds:', err);
+        return [];
+      }
+    },
+    retry: 1,
+    refetchOnWindowFocus: false
   });
 
   // Update unread count
   useEffect(() => {
-    if (notifications) {
-      const count = notifications.filter(n => !n.is_read).length;
-      setUnreadCount(count);
+    if (notifications && Array.isArray(notifications)) {
+      try {
+        const count = notifications.filter(n => !n.is_read).length;
+        setUnreadCount(count);
+      } catch (err) {
+        console.error('Error calculating unread count:', err);
+        setUnreadCount(0);
+      }
     }
   }, [notifications]);
 
@@ -105,40 +143,56 @@ export const useNotifications = () => {
   useEffect(() => {
     if (!user) return;
 
-    const channel = supabase
-      .channel('notifications-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`
-        },
-        (payload) => {
-          console.log('New notification:', payload);
-          queryClient.invalidateQueries({ queryKey: ['notifications'] });
-          
-          // Show browser notification if enabled
-          if (preferences?.push_notifications && 'Notification' in window) {
-            const notification = payload.new as Notification;
-            new Notification(notification.title, {
-              body: notification.message,
-              icon: '/favicon.ico'
-            });
+    try {
+      const channel = supabase
+        .channel('notifications-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('New notification:', payload);
+            queryClient.invalidateQueries({ queryKey: ['notifications'] });
+            
+            // Show browser notification if enabled
+            if (preferences?.push_notifications && 'Notification' in window) {
+              try {
+                const notification = payload.new as Notification;
+                new Notification(notification.title, {
+                  body: notification.message,
+                  icon: '/favicon.ico'
+                });
+              } catch (err) {
+                console.error('Error showing browser notification:', err);
+              }
+            }
+            
+            // Play sound if enabled
+            if (preferences?.sound_enabled) {
+              try {
+                playNotificationSound(preferences.sound_type);
+              } catch (err) {
+                console.error('Error playing notification sound:', err);
+              }
+            }
           }
-          
-          // Play sound if enabled
-          if (preferences?.sound_enabled) {
-            playNotificationSound(preferences.sound_type);
-          }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+      return () => {
+        try {
+          supabase.removeChannel(channel);
+        } catch (err) {
+          console.error('Error removing channel:', err);
+        }
+      };
+    } catch (err) {
+      console.error('Error setting up real-time subscription:', err);
+    }
   }, [user, preferences, queryClient]);
 
   // Mark notification as read
@@ -153,6 +207,9 @@ export const useNotifications = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+    onError: (error) => {
+      console.error('Error marking notification as read:', error);
     }
   });
 
@@ -174,6 +231,14 @@ export const useNotifications = () => {
       toast({
         title: "Notificaciones marcadas como leídas",
         description: "Todas las notificaciones han sido marcadas como leídas.",
+      });
+    },
+    onError: (error) => {
+      console.error('Error marking all as read:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron marcar las notificaciones como leídas.",
+        variant: "destructive",
       });
     }
   });
@@ -199,35 +264,53 @@ export const useNotifications = () => {
         title: "Preferencias actualizadas",
         description: "Tus preferencias de notificación han sido guardadas.",
       });
+    },
+    onError: (error) => {
+      console.error('Error updating preferences:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron actualizar las preferencias.",
+        variant: "destructive",
+      });
     }
   });
 
   // Play notification sound
   const playNotificationSound = (soundType: string) => {
-    const sound = sounds.find(s => s.name.toLowerCase() === soundType.toLowerCase()) || 
-                 sounds.find(s => s.is_default);
-    
-    if (sound) {
-      const audio = new Audio(sound.file_path);
-      audio.play().catch(console.error);
+    try {
+      const sound = sounds.find(s => s.name?.toLowerCase() === soundType?.toLowerCase()) || 
+                   sounds.find(s => s.is_default);
+      
+      if (sound && sound.file_path) {
+        const audio = new Audio(sound.file_path);
+        audio.play().catch(err => console.error('Error playing sound:', err));
+      }
+    } catch (err) {
+      console.error('Error in playNotificationSound:', err);
     }
   };
 
   // Request notification permission
   const requestNotificationPermission = async () => {
-    if ('Notification' in window) {
-      const permission = await Notification.requestPermission();
-      return permission === 'granted';
+    try {
+      if ('Notification' in window) {
+        const permission = await Notification.requestPermission();
+        return permission === 'granted';
+      }
+      return false;
+    } catch (err) {
+      console.error('Error requesting notification permission:', err);
+      return false;
     }
-    return false;
   };
 
   return {
-    notifications,
-    preferences,
-    sounds,
+    notifications: notifications || [],
+    preferences: preferences || null,
+    sounds: sounds || [],
     unreadCount,
     isLoading,
+    error,
     markAsRead,
     markAllAsRead,
     updatePreferences,
