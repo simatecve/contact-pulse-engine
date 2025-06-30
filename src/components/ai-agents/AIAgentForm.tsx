@@ -62,12 +62,12 @@ export const AIAgentForm: React.FC<AIAgentFormProps> = ({
 
         <div>
           <Label htmlFor="whatsapp_connection">Conexión WhatsApp</Label>
-          <Select value={whatsappConnectionId} onValueChange={(value) => setValue('whatsapp_connection_id', value)}>
+          <Select value={whatsappConnectionId || 'no-connection'} onValueChange={(value) => setValue('whatsapp_connection_id', value === 'no-connection' ? '' : value)}>
             <SelectTrigger>
               <SelectValue placeholder="Seleccionar conexión..." />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Sin conexión</SelectItem>
+              <SelectItem value="no-connection">Sin conexión</SelectItem>
               {connections.map((connection) => (
                 <SelectItem key={connection.id} value={connection.id}>
                   <div className="flex items-center space-x-2">

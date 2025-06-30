@@ -38,6 +38,34 @@ export interface AIAgentFormData {
   };
 }
 
+// Helper function to convert Json to response settings
+const convertResponseSettings = (jsonData: any): { max_tokens?: number; temperature?: number; } | undefined => {
+  if (!jsonData) return undefined;
+  
+  // If it's already an object, return it
+  if (typeof jsonData === 'object' && jsonData !== null) {
+    return {
+      max_tokens: jsonData.max_tokens,
+      temperature: jsonData.temperature,
+    };
+  }
+  
+  // If it's a string, try to parse it
+  if (typeof jsonData === 'string') {
+    try {
+      const parsed = JSON.parse(jsonData);
+      return {
+        max_tokens: parsed.max_tokens,
+        temperature: parsed.temperature,
+      };
+    } catch {
+      return undefined;
+    }
+  }
+  
+  return undefined;
+};
+
 export const useAIAgents = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -60,7 +88,12 @@ export const useAIAgents = () => {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return data || [];
+    
+    // Convert the data to match our interface
+    return (data || []).map(agent => ({
+      ...agent,
+      response_settings: convertResponseSettings(agent.response_settings)
+    })) as AIAgent[];
   };
 
   const createAIAgent = async (agentData: AIAgentFormData): Promise<AIAgent> => {
@@ -84,7 +117,11 @@ export const useAIAgents = () => {
       .single();
 
     if (error) throw error;
-    return data;
+    
+    return {
+      ...data,
+      response_settings: convertResponseSettings(data.response_settings)
+    } as AIAgent;
   };
 
   const updateAIAgent = async ({ id, ...updateData }: Partial<AIAgent> & { id: string }): Promise<AIAgent> => {
@@ -107,7 +144,11 @@ export const useAIAgents = () => {
       .single();
 
     if (error) throw error;
-    return data;
+    
+    return {
+      ...data,
+      response_settings: convertResponseSettings(data.response_settings)
+    } as AIAgent;
   };
 
   const deleteAIAgent = async (id: string): Promise<void> => {
