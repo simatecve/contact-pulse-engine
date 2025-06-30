@@ -63,14 +63,7 @@ export const Campaigns = () => {
         </TabsList>
 
         <TabsContent value="campaigns" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Mis Campañas</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CampaignTable />
-            </CardContent>
-          </Card>
+          <CampaignTable onShowCreateDialog={() => setIsCreateDialogOpen(true)} />
         </TabsContent>
 
         <TabsContent value="scheduling" className="space-y-4">

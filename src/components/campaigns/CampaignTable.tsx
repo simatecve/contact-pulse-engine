@@ -6,26 +6,34 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Campaign } from '@/hooks/useCampaigns';
+import { useCampaigns } from '@/hooks/useCampaigns';
 import { getStatusColor, getStatusText } from '@/utils/campaignUtils';
 
 interface CampaignTableProps {
-  campaigns: Campaign[];
   onShowCreateDialog: () => void;
-  onDeleteCampaign: (id: string) => void;
-  onStartCampaign: (id: string) => void;
-  onPauseCampaign: (id: string) => void;
-  onSendCampaign: (id: string) => void;
 }
 
-export const CampaignTable: React.FC<CampaignTableProps> = ({
-  campaigns,
-  onShowCreateDialog,
-  onDeleteCampaign,
-  onStartCampaign,
-  onPauseCampaign,
-  onSendCampaign
-}) => {
+export const CampaignTable: React.FC<CampaignTableProps> = ({ onShowCreateDialog }) => {
+  const { campaigns, deleteCampaign, updateCampaign } = useCampaigns();
+
+  const handleDeleteCampaign = (id: string) => {
+    if (confirm('¿Estás seguro de que quieres eliminar esta campaña?')) {
+      deleteCampaign.mutate(id);
+    }
+  };
+
+  const handleStartCampaign = (id: string) => {
+    updateCampaign.mutate({ id, status: 'active' });
+  };
+
+  const handlePauseCampaign = (id: string) => {
+    updateCampaign.mutate({ id, status: 'paused' });
+  };
+
+  const handleSendCampaign = (id: string) => {
+    updateCampaign.mutate({ id, status: 'sent' });
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -72,7 +80,7 @@ export const CampaignTable: React.FC<CampaignTableProps> = ({
                   </TableCell>
                   <TableCell>
                     <div>
-                      <p className="font-medium">{campaign.contact_lists?.name}</p>
+                      <p className="font-medium">{campaign.contact_lists?.name || 'Sin lista'}</p>
                       <p className="text-sm text-gray-500">
                         {campaign.contact_lists?.contact_count || 0} contactos
                       </p>
@@ -109,24 +117,24 @@ export const CampaignTable: React.FC<CampaignTableProps> = ({
                       <DropdownMenuContent align="end">
                         {campaign.status === 'draft' && (
                           <>
-                            <DropdownMenuItem onClick={() => onStartCampaign(campaign.id)}>
+                            <DropdownMenuItem onClick={() => handleStartCampaign(campaign.id)}>
                               <Play className="w-4 h-4 mr-2" />
                               Iniciar
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => onSendCampaign(campaign.id)}>
+                            <DropdownMenuItem onClick={() => handleSendCampaign(campaign.id)}>
                               <Send className="w-4 h-4 mr-2" />
                               Enviar
                             </DropdownMenuItem>
                           </>
                         )}
                         {campaign.status === 'active' && (
-                          <DropdownMenuItem onClick={() => onPauseCampaign(campaign.id)}>
+                          <DropdownMenuItem onClick={() => handlePauseCampaign(campaign.id)}>
                             <Pause className="w-4 h-4 mr-2" />
                             Pausar
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuItem 
-                          onClick={() => onDeleteCampaign(campaign.id)}
+                          onClick={() => handleDeleteCampaign(campaign.id)}
                           className="text-red-600"
                         >
                           <Trash2 className="w-4 h-4 mr-2" />

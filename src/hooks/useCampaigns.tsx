@@ -17,7 +17,28 @@ export interface Campaign {
   updated_at: string;
   contact_lists?: {
     name: string;
+    contact_count?: number;
   };
+  campaign_messages?: Array<{
+    id: string;
+    status: string;
+    sent_at: string;
+    contact_id: string;
+  }>;
+  campaign_attachments?: Array<{
+    id: string;
+    file_name: string;
+    file_path: string;
+  }>;
+}
+
+export interface CampaignFormData {
+  name: string;
+  message: string;
+  contact_list_id: string;
+  max_delay_seconds: number;
+  ai_enabled: boolean;
+  attachments?: File[];
 }
 
 export const useCampaigns = () => {
@@ -33,7 +54,9 @@ export const useCampaigns = () => {
         .from('campaigns')
         .select(`
           *,
-          contact_lists!inner(name)
+          contact_lists!inner(name),
+          campaign_messages(id, status, sent_at, contact_id),
+          campaign_attachments(id, file_name, file_path)
         `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
@@ -45,13 +68,15 @@ export const useCampaigns = () => {
   });
 
   const createCampaign = useMutation({
-    mutationFn: async (campaignData: Partial<Campaign>) => {
+    mutationFn: async (campaignData: CampaignFormData) => {
       if (!user) throw new Error('User not authenticated');
+      
+      const { attachments, ...campaignInfo } = campaignData;
       
       const { data, error } = await supabase
         .from('campaigns')
         .insert({
-          ...campaignData,
+          ...campaignInfo,
           user_id: user.id
         })
         .select()
@@ -109,7 +134,7 @@ export const useCampaigns = () => {
   });
 
   return {
-    campaigns,
+    campaigns: campaigns || [],
     isLoading,
     createCampaign,
     updateCampaign,

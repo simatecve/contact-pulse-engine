@@ -2,13 +2,11 @@
 import React from 'react';
 import { Send, MessageSquare, Eye, Users } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Campaign } from '@/hooks/useCampaigns';
+import { useCampaigns } from '@/hooks/useCampaigns';
 
-interface CampaignStatsProps {
-  campaigns: Campaign[];
-}
+export const CampaignStats: React.FC = () => {
+  const { campaigns } = useCampaigns();
 
-export const CampaignStats: React.FC<CampaignStatsProps> = ({ campaigns }) => {
   const calculateStats = () => {
     const activeCampaigns = campaigns.filter(c => c.status === 'active').length;
     const totalMessages = campaigns.reduce((sum, campaign) => 

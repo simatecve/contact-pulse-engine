@@ -146,7 +146,7 @@ export const useCampaignAnalytics = (campaignId?: string) => {
       
       return data.map(campaign => ({
         ...campaign,
-        metrics: calculateMetrics(campaign.campaign_analytics || [])
+        metrics: calculateMetrics(campaign.campaign_analytics as CampaignAnalytics[] || [])
       }));
     },
     enabled: !!user
