@@ -478,8 +478,52 @@ export type Database = {
         }
         Relationships: []
       }
+      conversation_assignments: {
+        Row: {
+          agent_id: string | null
+          assigned_at: string
+          assigned_by: string | null
+          conversation_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          unassigned_at: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          assigned_at?: string
+          assigned_by?: string | null
+          conversation_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          unassigned_at?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          assigned_at?: string
+          assigned_by?: string | null
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          unassigned_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_assignments_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversations: {
         Row: {
+          assigned_agent_id: string | null
+          assigned_at: string | null
+          assigned_by: string | null
           channel: string
           contact_email: string | null
           contact_name: string | null
@@ -496,6 +540,9 @@ export type Database = {
           whatsapp_number: string | null
         }
         Insert: {
+          assigned_agent_id?: string | null
+          assigned_at?: string | null
+          assigned_by?: string | null
           channel: string
           contact_email?: string | null
           contact_name?: string | null
@@ -512,6 +559,9 @@ export type Database = {
           whatsapp_number?: string | null
         }
         Update: {
+          assigned_agent_id?: string | null
+          assigned_at?: string | null
+          assigned_by?: string | null
           channel?: string
           contact_email?: string | null
           contact_name?: string | null

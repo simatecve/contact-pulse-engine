@@ -1,58 +1,69 @@
 
 import React from 'react';
-import { MoreVertical, Phone, Video } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Conversation } from '@/hooks/useConversations';
+import { AgentSelector } from './AgentSelector';
 
 interface ConversationHeaderProps {
   conversation: Conversation;
+  onAssignAgent?: (conversationId: string, agentId?: string, notes?: string) => void;
+  isAssigningAgent?: boolean;
 }
 
-export const ConversationHeader: React.FC<ConversationHeaderProps> = ({ conversation }) => {
+export const ConversationHeader: React.FC<ConversationHeaderProps> = ({
+  conversation,
+  onAssignAgent,
+  isAssigningAgent = false
+}) => {
   return (
-    <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-      <div className="flex items-center space-x-3">
-        <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
-          <span className="text-sm font-medium text-gray-700">
-            {conversation.contact_name ? 
-              conversation.contact_name.split(' ').map(n => n[0]).join('') :
-              'W'
-            }
-          </span>
-        </div>
-        <div>
-          <h2 className="font-medium text-gray-900">
-            {conversation.contact_name || 'Sin nombre'}
-          </h2>
-          <div className="flex items-center space-x-2 text-sm text-gray-500">
-            <span>{conversation.status === 'active' ? 'Activo' : 'Inactivo'}</span>
-            {conversation.whatsapp_number && (
-              <>
-                <span>•</span>
+    <div className="p-4 border-b border-gray-200 bg-white">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div 
+            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-medium"
+            style={{ backgroundColor: conversation.instance_color || '#3B82F6' }}
+          >
+            <span className="text-sm">
+              {conversation.contact_name ? 
+                conversation.contact_name.split(' ').map(n => n[0]).join('') :
+                'W'
+              }
+            </span>
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">
+              {conversation.contact_name || 'Sin nombre'}
+            </h3>
+            <div className="flex items-center space-x-2 text-sm text-gray-500">
+              {conversation.whatsapp_number && (
                 <span>{conversation.whatsapp_number}</span>
-              </>
-            )}
-            {conversation.instancia && (
-              <>
-                <span>•</span>
-                <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+              )}
+              <Badge variant="outline">
+                {conversation.channel === 'whatsapp' ? 'WhatsApp' : conversation.channel}
+              </Badge>
+              {conversation.instancia && (
+                <Badge 
+                  variant="secondary"
+                  style={{ 
+                    backgroundColor: `${conversation.instance_color || '#3B82F6'}20`,
+                    color: conversation.instance_color || '#3B82F6',
+                    borderColor: conversation.instance_color || '#3B82F6'
+                  }}
+                >
                   {conversation.instancia}
-                </span>
-              </>
-            )}
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-      <div className="flex items-center space-x-2">
-        <Button variant="ghost" size="sm">
-          <Phone className="w-4 h-4" />
-        </Button>
-        <Button variant="ghost" size="sm">
-          <Video className="w-4 h-4" />
-        </Button>
-        <Button variant="ghost" size="sm">
-          <MoreVertical className="w-4 h-4" />
-        </Button>
+        
+        {onAssignAgent && (
+          <AgentSelector
+            conversation={conversation}
+            onAssignAgent={onAssignAgent}
+            isLoading={isAssigningAgent}
+          />
+        )}
       </div>
     </div>
   );

@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { useConversations } from '@/hooks/useConversations';
 import { useMessages } from '@/hooks/useMessages';
@@ -9,7 +8,12 @@ import { toast } from '@/hooks/use-toast';
 import type { Conversation } from '@/hooks/useConversations';
 
 export const Conversations: React.FC = () => {
-  const { conversations, isLoading: conversationsLoading, updateConversation } = useConversations();
+  const { 
+    conversations, 
+    isLoading: conversationsLoading, 
+    updateConversation,
+    assignAgent 
+  } = useConversations();
   const { createMessage } = useMessages();
   const { getWebhookByName } = useWebhooks();
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
@@ -143,6 +147,14 @@ export const Conversations: React.FC = () => {
     setSelectedConversation(conversation);
   }, []);
 
+  const handleAssignAgent = useCallback(async (conversationId: string, agentId?: string, notes?: string) => {
+    try {
+      await assignAgent.mutateAsync({ conversationId, agentId, notes });
+    } catch (error) {
+      console.error('Error assigning agent:', error);
+    }
+  }, [assignAgent]);
+
   console.log('Renderizando conversaciones. Total:', conversations.length);
 
   return (
@@ -162,6 +174,8 @@ export const Conversations: React.FC = () => {
         onMessageChange={handleMessageChange}
         onSendMessage={handleSendMessage}
         onDownloadAttachment={handleDownloadAttachment}
+        onAssignAgent={handleAssignAgent}
+        isAssigningAgent={assignAgent.isPending}
       />
     </div>
   );

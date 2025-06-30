@@ -14,6 +14,8 @@ interface ChatAreaProps {
   onMessageChange: (message: string) => void;
   onSendMessage: () => void;
   onDownloadAttachment: (url: string) => void;
+  onAssignAgent?: (conversationId: string, agentId?: string, notes?: string) => void;
+  isAssigningAgent?: boolean;
 }
 
 export const ChatArea: React.FC<ChatAreaProps> = ({
@@ -23,7 +25,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   newMessage,
   onMessageChange,
   onSendMessage,
-  onDownloadAttachment
+  onDownloadAttachment,
+  onAssignAgent,
+  isAssigningAgent = false
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -42,7 +46,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
   return (
     <div className="flex-1 flex flex-col bg-white">
-      <ConversationHeader conversation={selectedConversation} />
+      <ConversationHeader 
+        conversation={selectedConversation} 
+        onAssignAgent={onAssignAgent}
+        isAssigningAgent={isAssigningAgent}
+      />
 
       {/* Messages */}
       <div className="flex-1 p-4 overflow-y-auto space-y-4">

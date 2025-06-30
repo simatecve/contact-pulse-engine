@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -18,6 +17,9 @@ export interface Conversation {
   status?: string;
   last_message_at?: string;
   last_message_content?: string;
+  assigned_agent_id?: string;
+  assigned_at?: string;
+  assigned_by?: string;
   created_at: string;
   updated_at: string;
 }
@@ -32,6 +34,37 @@ export interface ConversationFormData {
   instance_color?: string;
   status?: string;
 }
+
+const assignAgent = async ({ conversationId, agentId, notes }: { conversationId: string; agentId?: string; notes?: string }): Promise<void> => {
+  if (!user) throw new Error('Usuario no autenticado');
+
+  // Actualizar la conversación
+  const { error: updateError } = await supabase
+    .from('conversations')
+    .update({
+      assigned_agent_id: agentId,
+      assigned_at: agentId ? new Date().toISOString() : null,
+      assigned_by: agentId ? user.id : null,
+    })
+    .eq('id', conversationId)
+    .eq('user_id', user.id);
+
+  if (updateError) throw updateError;
+
+  // Crear registro en el historial de asignaciones
+  if (agentId) {
+    const { error: assignmentError } = await supabase
+      .from('conversation_assignments')
+      .insert({
+        conversation_id: conversationId,
+        agent_id: agentId,
+        assigned_by: user.id,
+        notes: notes,
+      });
+
+    if (assignmentError) throw assignmentError;
+  }
+};
 
 export const useConversations = () => {
   const { user } = useAuth();
@@ -198,6 +231,24 @@ export const useConversations = () => {
     },
   });
 
+  const assignAgentMutation = useMutation({
+    mutationFn: assignAgent,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      toast({
+        title: "Agente asignado",
+        description: "El agente se ha asignado exitosamente a la conversación.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Error al asignar agente: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
   return {
     conversations: conversationsQuery.data || [],
     isLoading: conversationsQuery.isLoading,
@@ -205,5 +256,6 @@ export const useConversations = () => {
     createConversation: createConversationMutation,
     updateConversation: updateConversationMutation,
     deleteConversation: deleteConversationMutation,
+    assignAgent: assignAgentMutation,
   };
 };
