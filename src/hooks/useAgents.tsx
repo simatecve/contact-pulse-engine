@@ -15,7 +15,12 @@ export const useAgents = () => {
   const { user } = useAuth();
 
   const fetchAgents = async (): Promise<Agent[]> => {
-    if (!user) return [];
+    console.log('useAgents: Iniciando fetch de agentes. Usuario:', user?.id);
+    
+    if (!user) {
+      console.log('useAgents: No hay usuario autenticado');
+      return [];
+    }
     
     // Obtener usuarios que pueden ser agentes (excluyendo el usuario actual)
     const { data, error } = await supabase
@@ -24,7 +29,14 @@ export const useAgents = () => {
       .neq('id', user.id)
       .order('first_name', { ascending: true });
 
-    if (error) throw error;
+    console.log('useAgents: Respuesta de la consulta:', { data, error });
+
+    if (error) {
+      console.error('useAgents: Error al obtener agentes:', error);
+      throw error;
+    }
+    
+    console.log('useAgents: Agentes obtenidos:', data?.length || 0);
     return data || [];
   };
 
@@ -32,11 +44,20 @@ export const useAgents = () => {
     queryKey: ['agents', user?.id],
     queryFn: fetchAgents,
     enabled: !!user,
+    staleTime: 5 * 60 * 1000, // 5 minutos
+  });
+
+  console.log('useAgents: Estado de la consulta:', {
+    isLoading: agentsQuery.isLoading,
+    isError: agentsQuery.isError,
+    error: agentsQuery.error,
+    dataLength: agentsQuery.data?.length || 0
   });
 
   return {
     agents: agentsQuery.data || [],
     isLoading: agentsQuery.isLoading,
     error: agentsQuery.error,
+    isError: agentsQuery.isError,
   };
 };
