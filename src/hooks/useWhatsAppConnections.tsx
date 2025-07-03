@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,82 +28,37 @@ interface WebhookEndpoint {
   description: string | null;
 }
 
-// Función auxiliar para validar URLs
-const isValidUrl = (url: string): boolean => {
-  try {
-    new URL(url);
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-// Función auxiliar para hacer peticiones con mejor manejo de errores y CORS
-const makeWebhookRequest = async (url: string, data: any, timeoutMs = 30000) => {
-  console.log(`Haciendo petición a: ${url} con modo no-cors`, data);
+// Función auxiliar para hacer peticiones a través del Edge Function proxy
+const makeProxyRequest = async (endpoint: string, data: any) => {
+  console.log(`Haciendo petición proxy a endpoint: ${endpoint}`, data);
   
-  if (!isValidUrl(url)) {
-    throw new Error(`URL inválida: ${url}`);
-  }
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
   try {
-    const response = await fetch(url, {
-      method: 'POST',
-      mode: 'no-cors', // Crucial para evitar errores CORS con webhooks externos
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-      signal: controller.signal,
+    const response = await supabase.functions.invoke('whatsapp-webhook-proxy', {
+      body: { endpoint, data }
     });
 
-    clearTimeout(timeoutId);
+    console.log('Respuesta del proxy:', response);
 
-    console.log(`Respuesta de ${url}:`, {
-      status: response.status,
-      statusText: response.statusText,
-      ok: response.ok,
-      type: response.type,
-      mode: 'no-cors aplicado'
-    });
-
-    // Con mode: 'no-cors', la respuesta será 'opaque' y no podremos leer el contenido
-    // Pero si llega aquí sin error, significa que la petición se envió correctamente
-    if (response.type === 'opaque') {
-      console.log('Respuesta opaque recibida - petición enviada correctamente');
-      return { 
-        ok: true, 
-        status: 0, // Las respuestas opaque siempre tienen status 0
-        text: () => Promise.resolve('Petición enviada correctamente'),
-        json: () => Promise.resolve({ success: true, message: 'Petición enviada' })
-      };
+    if (response.error) {
+      console.error('Error del proxy:', response.error);
+      throw new Error(`Error del proxy: ${response.error.message || 'Error desconocido'}`);
     }
 
-    // Para respuestas normales (si las hubiera)
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => 'Error desconocido');
-      console.error(`Error en webhook ${url}:`, errorText);
-      throw new Error(`Webhook error (${response.status}): ${response.statusText}`);
+    if (!response.data) {
+      throw new Error('No se recibió respuesta del proxy');
     }
 
-    return response;
+    const result = response.data;
+    
+    if (!result.success) {
+      console.error('Error del webhook:', result.error);
+      throw new Error(result.error || 'Error en el webhook');
+    }
+
+    return result.data;
   } catch (error) {
-    clearTimeout(timeoutId);
-    
-    if (error instanceof Error) {
-      if (error.name === 'AbortError') {
-        console.error(`Timeout en petición a ${url}`);
-        throw new Error(`Timeout: El webhook no respondió en ${timeoutMs/1000} segundos`);
-      }
-      console.error(`Error en petición a ${url}:`, error.message);
-      throw error;
-    }
-    
-    console.error(`Error desconocido en petición a ${url}:`, error);
-    throw new Error('Error desconocido en la petición');
+    console.error('Error en makeProxyRequest:', error);
+    throw error;
   }
 };
 
@@ -110,6 +66,7 @@ export const useWhatsAppConnections = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [qrCodes, setQrCodes] = useState<Record<string, string>>({});
+  const [qrLoading, setQrLoading] = useState<Record<string, boolean>>({});
 
   const { data: connections = [], isLoading } = useQuery({
     queryKey: ['whatsapp-connections', user?.id],
@@ -128,49 +85,20 @@ export const useWhatsAppConnections = () => {
     enabled: !!user
   });
 
-  const { data: webhooks = [] } = useQuery({
-    queryKey: ['webhook-endpoints'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('webhook_endpoints')
-        .select('*');
-
-      if (error) throw error;
-      return data as WebhookEndpoint[];
-    }
-  });
-
-  const getWebhookUrl = (name: string) => {
-    const webhook = webhooks.find(w => w.name === name);
-    if (!webhook?.url) {
-      console.error(`Webhook no encontrado: ${name}`);
-      console.log('Webhooks disponibles:', webhooks.map(w => w.name));
-    }
-    return webhook?.url || '';
-  };
-
   const createConnection = useMutation({
     mutationFn: async (connectionData: ConnectionFormData) => {
       if (!user) throw new Error('Usuario no autenticado');
       
       console.log('Iniciando creación de conexión:', connectionData);
       
-      const webhookUrl = getWebhookUrl('crear-instancia');
-      if (!webhookUrl) {
-        throw new Error('Webhook "crear-instancia" no encontrado o URL vacía');
-      }
-
-      console.log('URL del webhook crear-instancia:', webhookUrl);
-
       try {
-        const response = await makeWebhookRequest(webhookUrl, {
+        // Crear la conexión usando el proxy
+        const webhookResponse = await makeProxyRequest('crear-instancia', {
           name: connectionData.name,
           color: connectionData.color
         });
 
-        // Con mode: 'no-cors', no podemos leer la respuesta real
-        // Pero si llegamos aquí, la petición se envió correctamente
-        console.log('Petición de creación enviada correctamente al webhook');
+        console.log('Respuesta del webhook crear-instancia:', webhookResponse);
 
         // Guardar en la base de datos
         const { data: connection, error } = await supabase
@@ -179,7 +107,7 @@ export const useWhatsAppConnections = () => {
             name: connectionData.name,
             color: connectionData.color,
             user_id: user.id,
-            instance_id: null // Se actualizará cuando tengamos confirmación
+            instance_id: webhookResponse?.instance_id || null
           })
           .select()
           .single();
@@ -200,7 +128,7 @@ export const useWhatsAppConnections = () => {
       queryClient.invalidateQueries({ queryKey: ['whatsapp-connections'] });
       toast({
         title: "Conexión creada",
-        description: "La petición se envió correctamente. La instancia debería crearse en unos momentos.",
+        description: "La instancia de WhatsApp se creó correctamente.",
       });
     },
     onError: (error) => {
@@ -216,47 +144,80 @@ export const useWhatsAppConnections = () => {
 
   const getQRCode = useMutation({
     mutationFn: async (connectionId: string) => {
-      const webhookUrl = getWebhookUrl('qr');
-      if (!webhookUrl) throw new Error('Webhook "qr" no encontrado');
-
       const connection = connections.find(c => c.id === connectionId);
       if (!connection) throw new Error('Conexión no encontrada');
 
+      // Evitar solicitudes múltiples
+      if (qrLoading[connectionId]) {
+        console.log('Ya hay una petición de QR en curso para:', connectionId);
+        return null;
+      }
+
       console.log('Solicitando código QR para:', connection.name);
+      
+      // Marcar como cargando
+      setQrLoading(prev => ({ ...prev, [connectionId]: true }));
 
       try {
-        const response = await makeWebhookRequest(webhookUrl, {
+        const webhookResponse = await makeProxyRequest('qr', {
           name: connection.name
         });
 
-        // Con mode: 'no-cors', no podemos leer la respuesta
-        // Simulamos que se generó correctamente
-        console.log('Petición QR enviada correctamente');
+        console.log('Respuesta del webhook QR:', webhookResponse);
         
-        // Por ahora, devolvemos un placeholder hasta que se implemente un método
-        // para obtener el QR de manera diferente
-        const qrCodeData = 'QR_SOLICITADO_' + Date.now();
+        // Extraer el QR de la respuesta
+        let qrCodeData = null;
         
-        // Guardar el QR en el estado local
-        setQrCodes(prev => ({
-          ...prev,
-          [connectionId]: qrCodeData
-        }));
+        if (webhookResponse?.qr_code) {
+          qrCodeData = webhookResponse.qr_code;
+        } else if (webhookResponse?.qr) {
+          qrCodeData = webhookResponse.qr;
+        } else if (webhookResponse?.data && webhookResponse.data.qr_code) {
+          qrCodeData = webhookResponse.data.qr_code;
+        }
+
+        if (qrCodeData) {
+          console.log('Código QR obtenido exitosamente');
+          
+          // Guardar el QR en el estado local
+          setQrCodes(prev => ({
+            ...prev,
+            [connectionId]: qrCodeData
+          }));
+          
+          // Actualizar en la base de datos
+          await supabase
+            .from('whatsapp_connections')
+            .update({ qr_code: qrCodeData })
+            .eq('id', connectionId);
+          
+          return qrCodeData;
+        } else {
+          console.warn('No se encontró código QR en la respuesta');
+          throw new Error('No se pudo obtener el código QR del webhook');
+        }
         
-        return qrCodeData;
       } catch (error) {
-        console.error('Error en getQRCode:', error);
+        console.error('Error al obtener QR:', error);
         throw error;
+      } finally {
+        // Quitar el estado de carga
+        setQrLoading(prev => ({ ...prev, [connectionId]: false }));
       }
     },
-    onSuccess: (data) => {
-      toast({
-        title: "Código QR solicitado",
-        description: "La petición del código QR se envió correctamente.",
-      });
+    onSuccess: (data, connectionId) => {
+      if (data) {
+        // Solo mostrar toast si realmente se obtuvo un QR
+        toast({
+          title: "Código QR obtenido",
+          description: "Escanea el código QR con tu WhatsApp para conectar.",
+        });
+      }
     },
-    onError: (error) => {
+    onError: (error, connectionId) => {
       console.error('Error en getQRCode mutation:', error);
+      setQrLoading(prev => ({ ...prev, [connectionId]: false }));
+      
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
       toast({
         title: "Error al obtener QR",
@@ -268,30 +229,29 @@ export const useWhatsAppConnections = () => {
 
   const checkConnectionStatus = useMutation({
     mutationFn: async (connectionId: string) => {
-      const webhookUrl = getWebhookUrl('estatus-instancia');
-      if (!webhookUrl) throw new Error('Webhook "estatus-instancia" no encontrado');
-
       const connection = connections.find(c => c.id === connectionId);
       if (!connection) throw new Error('Conexión no encontrada');
 
       console.log('Verificando estatus para:', connection.name);
-      console.log('URL del webhook:', webhookUrl);
 
       try {
-        const response = await makeWebhookRequest(webhookUrl, {
+        const webhookResponse = await makeProxyRequest('estatus-instancia', {
           name: connection.name
         });
 
-        console.log('Petición de verificación de estatus enviada correctamente');
+        console.log('Respuesta del webhook estatus:', webhookResponse);
         
-        // Como no podemos leer la respuesta real, 
-        // sugerimos al usuario que verifique manualmente
-        toast({
-          title: "Verificación enviada",
-          description: "Se envió la petición de verificación. Si tu WhatsApp está conectado, marca como conectado manualmente.",
-        });
+        // Actualizar el estatus si se recibe información del webhook
+        if (webhookResponse?.status) {
+          const newStatus = webhookResponse.status === 'connected' ? 'connected' : 'disconnected';
+          
+          await supabase
+            .from('whatsapp_connections')
+            .update({ status: newStatus })
+            .eq('id', connectionId);
+        }
         
-        return { status: 'verification_sent' };
+        return webhookResponse;
       } catch (error) {
         console.error('Error en checkConnectionStatus:', error);
         throw error;
@@ -299,6 +259,10 @@ export const useWhatsAppConnections = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['whatsapp-connections'] });
+      toast({
+        title: "Estatus verificado",
+        description: "Se verificó el estatus de la conexión correctamente.",
+      });
     },
     onError: (error) => {
       console.error('Error en checkConnectionStatus mutation:', error);
@@ -313,7 +277,6 @@ export const useWhatsAppConnections = () => {
 
   const markAsConnected = useMutation({
     mutationFn: async (connectionId: string) => {
-      // Actualizar directamente el estatus en la base de datos sin webhook
       const { error } = await supabase
         .from('whatsapp_connections')
         .update({ status: 'connected' })
@@ -350,20 +313,21 @@ export const useWhatsAppConnections = () => {
 
   const deleteConnection = useMutation({
     mutationFn: async (connectionId: string) => {
-      const webhookUrl = getWebhookUrl('eliminar-instancia');
-      if (!webhookUrl) throw new Error('Webhook "eliminar-instancia" no encontrado');
-
       const connection = connections.find(c => c.id === connectionId);
       if (!connection) throw new Error('Conexión no encontrada');
 
       console.log('Eliminando instancia:', connection.name);
 
       try {
-        const response = await makeWebhookRequest(webhookUrl, {
-          name: connection.name
-        });
-
-        console.log('Petición de eliminación enviada correctamente');
+        // Intentar eliminar la instancia del webhook
+        try {
+          await makeProxyRequest('eliminar-instancia', {
+            name: connection.name
+          });
+          console.log('Instancia eliminada del webhook correctamente');
+        } catch (webhookError) {
+          console.warn('Error al eliminar del webhook (continuando):', webhookError);
+        }
 
         // Eliminar de la base de datos
         const { error } = await supabase
@@ -389,8 +353,8 @@ export const useWhatsAppConnections = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['whatsapp-connections'] });
       toast({
-        title: "Instancia eliminada",
-        description: "La petición de eliminación se envió correctamente.",
+        title: "Conexión eliminada",
+        description: "La conexión se eliminó correctamente.",
       });
     },
     onError: (error) => {
@@ -398,7 +362,7 @@ export const useWhatsAppConnections = () => {
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
       toast({
         title: "Error al eliminar",
-        description: `No se pudo eliminar la instancia: ${errorMessage}`,
+        description: `No se pudo eliminar la conexión: ${errorMessage}`,
         variant: "destructive",
       });
     }
@@ -409,6 +373,11 @@ export const useWhatsAppConnections = () => {
     return qrCodes[connectionId] || null;
   };
 
+  // Función para verificar si está cargando el QR
+  const isQRLoading = (connectionId: string) => {
+    return qrLoading[connectionId] || false;
+  };
+
   return {
     connections,
     isLoading,
@@ -417,6 +386,7 @@ export const useWhatsAppConnections = () => {
     markAsConnected,
     checkConnectionStatus,
     deleteConnection,
-    getQRFromState
+    getQRFromState,
+    isQRLoading
   };
 };
