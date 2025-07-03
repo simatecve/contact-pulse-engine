@@ -29,7 +29,8 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
     connectionId, 
     hasQRCode: !!qrCode, 
     isLoading,
-    connectionName: connection?.name 
+    connectionName: connection?.name,
+    qrCodeLength: qrCode?.length
   });
 
   // Solicitar código QR automáticamente cuando se abre el modal
@@ -43,7 +44,7 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
         console.error('Error al obtener QR automáticamente:', error);
         const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
         setError(errorMessage);
-        setHasRequestedQR(false); // Allow retry
+        setHasRequestedQR(false);
       });
     }
   }, [open, connectionId, hasRequestedQR, qrCode, isLoading, error, getQRCode]);
@@ -82,8 +83,6 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
 
   const isCircuitBreakerError = error?.includes('Circuit breaker is open');
 
-  console.log('QR Image disponible:', qrCode ? 'Sí' : 'No');
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md" aria-describedby="qr-modal-description">
@@ -110,7 +109,8 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
             </div>
           )}
           
-          {qrCode ? (
+          {/* Mostrar QR si está disponible */}
+          {qrCode && (
             <div className="space-y-4">
               <div className="flex justify-center">
                 <img 
@@ -138,7 +138,10 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
                 Actualizar QR
               </Button>
             </div>
-          ) : (
+          )}
+
+          {/* Mostrar estado de carga o error cuando no hay QR */}
+          {!qrCode && (
             <div className="flex justify-center items-center w-64 h-64 mx-auto border-2 border-dashed border-gray-300 rounded-lg">
               <div className="text-center">
                 {isLoading ? (
