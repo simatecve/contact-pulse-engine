@@ -80,29 +80,9 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
     }
   };
 
-  const getQRImageSrc = (qrCode: string) => {
-    console.log('Procesando QR para mostrar:', qrCode ? qrCode.substring(0, 100) + '...' : 'null');
-    
-    if (!qrCode) return null;
-
-    // Si ya tiene el prefijo data:image, usarlo directamente  
-    if (qrCode.startsWith('data:image/')) {
-      return qrCode;
-    }
-    
-    // Si es solo base64, agregar el prefijo
-    if (qrCode.match(/^[A-Za-z0-9+/=]+$/)) {
-      return `data:image/png;base64,${qrCode}`;
-    }
-    
-    // Para cualquier otro formato, intentar usarlo directamente
-    return qrCode;
-  };
-
-  const qrImageSrc = qrCode ? getQRImageSrc(qrCode) : null;
   const isCircuitBreakerError = error?.includes('Circuit breaker is open');
 
-  console.log('QR Image Src:', qrImageSrc ? 'QR Image preparada' : 'No QR Image');
+  console.log('QR Image disponible:', qrCode ? 'Sí' : 'No');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -130,16 +110,16 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
             </div>
           )}
           
-          {qrImageSrc ? (
+          {qrCode ? (
             <div className="space-y-4">
               <div className="flex justify-center">
                 <img 
-                  src={qrImageSrc}
+                  src={qrCode}
                   alt="Código QR de WhatsApp" 
                   className="w-64 h-64 border rounded-lg"
                   onError={(e) => {
                     console.error('Error al cargar imagen QR:', e);
-                    console.log('URL de imagen que falló:', qrImageSrc);
+                    console.log('URL de imagen que falló:', qrCode);
                   }}
                   onLoad={() => {
                     console.log('Imagen QR cargada correctamente');

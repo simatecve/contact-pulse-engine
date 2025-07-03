@@ -221,44 +221,27 @@ export const useWhatsAppConnections = () => {
           name: connection.name
         });
 
-        console.log('Respuesta completa del webhook QR:', JSON.stringify(response, null, 2));
+        console.log('Respuesta del webhook QR:', JSON.stringify(response, null, 2));
 
-        // Buscar el QR en el formato correcto del webhook: array con objeto data.base64
+        // El webhook devuelve el QR en formato array con data.base64
         let qrCode = null;
         
-        // Verificar si la respuesta es un array y tiene el formato esperado
         if (Array.isArray(response) && response.length > 0 && response[0]?.data?.base64) {
           qrCode = response[0].data.base64;
-          console.log('QR extraído del formato array:', qrCode ? 'QR encontrado en response[0].data.base64' : 'QR no encontrado');
+          console.log('QR extraído correctamente del webhook');
         }
-        // Formatos alternativos de respuesta (compatibilidad con otros webhooks)
-        else if (response?.qr) {
-          qrCode = response.qr;
-          console.log('QR extraído de response.qr');
-        } else if (response?.qr_code) {
-          qrCode = response.qr_code;
-          console.log('QR extraído de response.qr_code');
-        } else if (response?.data?.qr) {
-          qrCode = response.data.qr;
-          console.log('QR extraído de response.data.qr');
-        } else if (response?.base64) {
-          qrCode = response.base64;
-          console.log('QR extraído de response.base64');
-        } else if (typeof response === 'string' && response.includes('data:image')) {
-          qrCode = response;
-          console.log('QR extraído de string response');
-        }
-
-        console.log('QR Code final extraído:', qrCode ? 'QR encontrado y procesado' : 'QR NO encontrado');
 
         if (qrCode) {
-          // Validar formato del QR - ya debería tener el prefijo correcto
-          if (!qrCode.startsWith('data:image/')) {
-            console.log('QR no tiene prefijo data:image, agregándolo');
-            qrCode = `data:image/png;base64,${qrCode}`;
-          }
+          console.log('QR Code procesado exitosamente');
 
-          // Actualizar la base de datos con el QR
+          // Guardar inmediatamente en el estado local
+          setQrCodes(prev => {
+            const updated = { ...prev, [connectionId]: qrCode };
+            console.log('Estado QR actualizado:', updated);
+            return updated;
+          });
+
+          // Actualizar la base de datos
           const { error: updateError } = await supabase
             .from('whatsapp_connections')
             .update({ qr_code: qrCode })
@@ -268,38 +251,11 @@ export const useWhatsAppConnections = () => {
             console.error('Error al actualizar QR en base de datos:', updateError);
           }
 
-          // Guardar el QR en el estado local INMEDIATAMENTE
-          setQrCodes(prev => ({
-            ...prev,
-            [connectionId]: qrCode
-          }));
-          
-          console.log('QR guardado exitosamente en estado local para conexión:', connectionId);
+          console.log('QR guardado exitosamente para conexión:', connectionId);
           return qrCode;
         }
 
-        // Si no hay QR en la respuesta, verificar en la base de datos
-        console.log('No se encontró QR en la respuesta del webhook, verificando base de datos...');
-        const { data: updatedConnection, error } = await supabase
-          .from('whatsapp_connections')
-          .select('qr_code')
-          .eq('id', connectionId)
-          .single();
-
-        if (error) throw error;
-
-        if (updatedConnection?.qr_code) {
-          console.log('Código QR obtenido de la base de datos');
-          
-          setQrCodes(prev => ({
-            ...prev,
-            [connectionId]: updatedConnection.qr_code
-          }));
-          
-          return updatedConnection.qr_code;
-        }
-
-        console.warn('No se encontró código QR en ninguna ubicación');
+        console.warn('No se encontró código QR en la respuesta del webhook');
         return null;
         
       } catch (error) {
@@ -313,7 +269,7 @@ export const useWhatsAppConnections = () => {
     onSuccess: (data, connectionId) => {
       if (data) {
         console.log('QR obtenido exitosamente para conexión:', connectionId);
-        // Forzar actualización del query para refrescar la UI
+        // Invalidar queries para forzar re-render
         queryClient.invalidateQueries({ queryKey: ['whatsapp-connections'] });
         
         toast({
