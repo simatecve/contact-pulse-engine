@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useWebhookUrls } from '@/hooks/useWebhookUrls';
 import { toast } from '@/hooks/use-toast';
 
 export interface WhatsAppConnection {
@@ -21,37 +22,112 @@ export interface ConnectionFormData {
   color: string;
 }
 
-// Función para hacer peticiones directas al webhook de N8N
-const makeWebhookRequest = async (endpoint: string, data: any) => {
-  console.log(`Haciendo petición directa al endpoint: ${endpoint}`, data);
-  
-  const webhookUrl = `https://repuestosonlinecrm-n8n.knbhoa.easypanel.host/webhook/${endpoint}`;
-  
-  try {
-    const response = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-      mode: 'no-cors'
-    });
+// Circuit breaker state for preventing infinite retries
+interface CircuitBreakerState {
+  failures: number;
+  lastFailure: number;
+  isOpen: boolean;
+}
 
-    console.log(`Respuesta del webhook ${endpoint}:`, response);
-    
-    // Con mode: 'no-cors' la respuesta es opaque, asumimos que fue exitosa
-    return { success: true };
-  } catch (error) {
-    console.error(`Error en webhook ${endpoint}:`, error);
-    throw error;
+const circuitBreakers: Record<string, CircuitBreakerState> = {};
+const MAX_FAILURES = 3;
+const RESET_TIMEOUT = 30000; // 30 seconds
+
+const getCircuitBreaker = (key: string): CircuitBreakerState => {
+  if (!circuitBreakers[key]) {
+    circuitBreakers[key] = { failures: 0, lastFailure: 0, isOpen: false };
   }
+  return circuitBreakers[key];
+};
+
+const canMakeRequest = (key: string): boolean => {
+  const breaker = getCircuitBreaker(key);
+  
+  if (!breaker.isOpen) return true;
+  
+  // Check if we should reset the circuit breaker
+  if (Date.now() - breaker.lastFailure > RESET_TIMEOUT) {
+    console.log(`Circuit breaker reset for: ${key}`);
+    breaker.failures = 0;
+    breaker.isOpen = false;
+    return true;
+  }
+  
+  return false;
+};
+
+const recordFailure = (key: string) => {
+  const breaker = getCircuitBreaker(key);
+  breaker.failures++;
+  breaker.lastFailure = Date.now();
+  
+  if (breaker.failures >= MAX_FAILURES) {
+    breaker.isOpen = true;
+    console.warn(`Circuit breaker opened for: ${key}. Too many failures.`);
+  }
+};
+
+const recordSuccess = (key: string) => {
+  const breaker = getCircuitBreaker(key);
+  breaker.failures = 0;
+  breaker.isOpen = false;
 };
 
 export const useWhatsAppConnections = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { getWebhookUrl } = useWebhookUrls();
   const [qrCodes, setQrCodes] = useState<Record<string, string>>({});
   const [qrLoading, setQrLoading] = useState<Record<string, boolean>>({});
+
+  // Función para hacer peticiones a webhooks usando URLs de la base de datos
+  const makeWebhookRequest = async (endpoint: string, data: any) => {
+    const circuitKey = `webhook-${endpoint}`;
+    
+    if (!canMakeRequest(circuitKey)) {
+      throw new Error(`Circuit breaker is open for ${endpoint}. Too many recent failures. Please wait.`);
+    }
+
+    const webhookUrl = getWebhookUrl(endpoint);
+    
+    if (!webhookUrl) {
+      throw new Error(`Webhook URL not found for endpoint: ${endpoint}`);
+    }
+
+    console.log(`Making request to webhook: ${endpoint}`, { url: webhookUrl, data });
+    
+    try {
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      console.log(`Webhook ${endpoint} response status:`, response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        throw new Error(`Webhook ${endpoint} failed: ${response.status} - ${errorText}`);
+      }
+
+      // Try to parse JSON response
+      const responseData = await response.json().catch(async () => {
+        const text = await response.text().catch(() => '');
+        return { message: text || 'Request processed successfully' };
+      });
+
+      console.log(`Webhook ${endpoint} response:`, responseData);
+      recordSuccess(circuitKey);
+      
+      return responseData;
+    } catch (error) {
+      console.error(`Error in webhook ${endpoint}:`, error);
+      recordFailure(circuitKey);
+      throw error;
+    }
+  };
 
   const { data: connections = [], isLoading } = useQuery({
     queryKey: ['whatsapp-connections', user?.id],
@@ -77,7 +153,7 @@ export const useWhatsAppConnections = () => {
       console.log('Iniciando creación de conexión:', connectionData);
       
       try {
-        // Crear la conexión usando petición directa
+        // Crear la conexión usando la URL correcta desde la base de datos
         await makeWebhookRequest('crear-instancia', {
           name: connectionData.name,
           color: connectionData.color
@@ -142,13 +218,36 @@ export const useWhatsAppConnections = () => {
       setQrLoading(prev => ({ ...prev, [connectionId]: true }));
 
       try {
-        await makeWebhookRequest('qr', {
+        const response = await makeWebhookRequest('qr', {
           name: connection.name
         });
 
-        // Simular obtención del QR desde la base de datos o estado
-        // En la implementación real, el QR se obtendría de la respuesta del webhook
-        // Por ahora, verificamos si ya existe en la base de datos
+        console.log('Respuesta del webhook QR:', response);
+
+        // Si el webhook devuelve el QR directamente
+        if (response && response.qr) {
+          const qrCode = response.qr;
+          
+          // Actualizar la base de datos con el QR
+          const { error: updateError } = await supabase
+            .from('whatsapp_connections')
+            .update({ qr_code: qrCode })
+            .eq('id', connectionId);
+
+          if (updateError) {
+            console.error('Error al actualizar QR en base de datos:', updateError);
+          }
+
+          // Guardar el QR en el estado local
+          setQrCodes(prev => ({
+            ...prev,
+            [connectionId]: qrCode
+          }));
+          
+          return qrCode;
+        }
+
+        // Si no hay QR en la respuesta, verificar en la base de datos
         const { data: updatedConnection, error } = await supabase
           .from('whatsapp_connections')
           .select('qr_code')
@@ -160,19 +259,16 @@ export const useWhatsAppConnections = () => {
         if (updatedConnection?.qr_code) {
           console.log('Código QR obtenido de la base de datos');
           
-          // Guardar el QR en el estado local
           setQrCodes(prev => ({
             ...prev,
             [connectionId]: updatedConnection.qr_code
           }));
           
           return updatedConnection.qr_code;
-        } else {
-          console.log('No se encontró código QR en la base de datos');
-          // Aquí deberías implementar la lógica para obtener el QR del webhook
-          // Por ahora retornamos null
-          return null;
         }
+
+        console.log('No se encontró código QR');
+        return null;
         
       } catch (error) {
         console.error('Error al obtener QR:', error);
@@ -195,11 +291,21 @@ export const useWhatsAppConnections = () => {
       setQrLoading(prev => ({ ...prev, [connectionId]: false }));
       
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      toast({
-        title: "Error al obtener QR",
-        description: `No se pudo obtener el código QR: ${errorMessage}`,
-        variant: "destructive",
-      });
+      
+      // Check if it's a circuit breaker error
+      if (errorMessage.includes('Circuit breaker is open')) {
+        toast({
+          title: "Demasiados intentos fallidos",
+          description: "Por favor espera 30 segundos antes de intentar nuevamente.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error al obtener QR",
+          description: `No se pudo obtener el código QR: ${errorMessage}`,
+          variant: "destructive",
+        });
+      }
     }
   });
 
