@@ -24,10 +24,18 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
   const qrCode = connectionId ? getQRFromState(connectionId) : null;
   const isLoading = connectionId ? isQRLoading(connectionId) : false;
 
-  // Solicitar código QR automáticamente cuando se abre el modal (solo una vez)
+  console.log('QRCodeModal render:', { 
+    open, 
+    connectionId, 
+    hasQRCode: !!qrCode, 
+    isLoading,
+    connectionName: connection?.name 
+  });
+
+  // Solicitar código QR automáticamente cuando se abre el modal
   useEffect(() => {
     if (open && connectionId && !hasRequestedQR && !qrCode && !isLoading && !error) {
-      console.log('Modal abierto, solicitando código QR para:', connectionId);
+      console.log('Modal abierto - solicitando código QR automáticamente para:', connectionId);
       setHasRequestedQR(true);
       setError(null);
       
@@ -38,7 +46,7 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
         setHasRequestedQR(false); // Allow retry
       });
     }
-  }, [open, connectionId, hasRequestedQR, qrCode, isLoading, error]);
+  }, [open, connectionId, hasRequestedQR, qrCode, isLoading, error, getQRCode]);
 
   // Resetear el estado cuando se cierra el modal
   useEffect(() => {
@@ -57,6 +65,7 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
 
   const handleRefreshQR = async () => {
     if (connectionId) {
+      console.log('Refrescando QR manualmente para:', connectionId);
       setHasRequestedQR(true);
       setError(null);
       
@@ -72,7 +81,7 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
   };
 
   const getQRImageSrc = (qrCode: string) => {
-    console.log('Procesando QR para mostrar:', qrCode ? qrCode.substring(0, 50) + '...' : 'null');
+    console.log('Procesando QR para mostrar:', qrCode ? qrCode.substring(0, 100) + '...' : 'null');
     
     if (!qrCode) return null;
 
@@ -91,8 +100,9 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
   };
 
   const qrImageSrc = qrCode ? getQRImageSrc(qrCode) : null;
-
   const isCircuitBreakerError = error?.includes('Circuit breaker is open');
+
+  console.log('QR Image Src:', qrImageSrc ? 'QR Image preparada' : 'No QR Image');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -177,6 +187,15 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
                     <p className="text-sm text-gray-500 mb-4">
                       Preparando código QR...
                     </p>
+                    <Button 
+                      onClick={handleRefreshQR}
+                      variant="outline"
+                      size="sm"
+                      disabled={isLoading}
+                    >
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Obtener QR
+                    </Button>
                   </>
                 )}
               </div>
