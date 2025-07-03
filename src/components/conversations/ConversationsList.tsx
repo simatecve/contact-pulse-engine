@@ -20,15 +20,15 @@ export const ConversationsList: React.FC<ConversationsListProps> = ({
 }) => {
   if (isLoading) {
     return (
-      <div className="w-1/3 border-r border-gray-200 bg-white flex items-center justify-center">
+      <div className="w-1/3 min-w-80 border-r border-gray-200 bg-white flex items-center justify-center">
         <div>Cargando conversaciones...</div>
       </div>
     );
   }
 
   return (
-    <div className="w-1/3 border-r border-gray-200 bg-white">
-      <div className="p-4 border-b border-gray-200">
+    <div className="w-1/3 min-w-80 border-r border-gray-200 bg-white flex flex-col">
+      <div className="p-4 border-b border-gray-200 flex-shrink-0">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
           <Input
@@ -38,7 +38,7 @@ export const ConversationsList: React.FC<ConversationsListProps> = ({
         </div>
       </div>
 
-      <div className="overflow-y-auto">
+      <div className="flex-1 overflow-y-auto">
         {conversations.length === 0 ? (
           <div className="p-4 text-center text-gray-500">
             No hay conversaciones disponibles
@@ -55,7 +55,7 @@ export const ConversationsList: React.FC<ConversationsListProps> = ({
               <div className="flex items-center space-x-3">
                 <div className="relative">
                   <div 
-                    className="w-12 h-12 rounded-full flex items-center justify-center text-white font-medium"
+                    className="w-12 h-12 rounded-full flex items-center justify-center text-white font-medium flex-shrink-0"
                     style={{ backgroundColor: conversation.instance_color || '#3B82F6' }}
                   >
                     <span className="text-sm">
@@ -74,7 +74,7 @@ export const ConversationsList: React.FC<ConversationsListProps> = ({
                     <h3 className="text-sm font-medium text-gray-900 truncate">
                       {conversation.contact_name || 'Sin nombre'}
                     </h3>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-gray-500 flex-shrink-0">
                       {conversation.last_message_at ? 
                         new Date(conversation.last_message_at).toLocaleTimeString('es-ES', { 
                           hour: '2-digit', 
@@ -92,7 +92,7 @@ export const ConversationsList: React.FC<ConversationsListProps> = ({
                   {conversation.whatsapp_number && (
                     <div className="text-xs text-gray-500 truncate">{conversation.whatsapp_number}</div>
                   )}
-                  <div className="mt-1 flex items-center space-x-2">
+                  <div className="mt-1 flex items-center space-x-2 flex-wrap">
                     <Badge variant="outline" className="text-xs">
                       {conversation.channel === 'whatsapp' ? 'WhatsApp' : conversation.channel}
                     </Badge>

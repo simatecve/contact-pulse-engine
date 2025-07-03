@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import { useConversations } from '@/hooks/useConversations';
 import { useMessages } from '@/hooks/useMessages';
@@ -158,7 +159,7 @@ export const Conversations: React.FC = () => {
   console.log('Renderizando conversaciones. Total:', conversations.length);
 
   return (
-    <div className="h-full flex">
+    <div className="flex h-full w-full">
       <ConversationsList
         conversations={conversations}
         selectedConversation={selectedConversation}

@@ -53,15 +53,15 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       />
 
       {/* Messages */}
-      <div className="flex-1 p-4 overflow-y-auto space-y-4">
+      <div className="flex-1 p-4 overflow-y-auto">
         {messagesLoading ? (
-          <div className="flex items-center justify-center">Cargando mensajes...</div>
+          <div className="flex items-center justify-center h-full">Cargando mensajes...</div>
         ) : messages.length === 0 ? (
-          <div className="flex items-center justify-center text-gray-500">
+          <div className="flex items-center justify-center h-full text-gray-500">
             No hay mensajes en esta conversación
           </div>
         ) : (
-          <>
+          <div className="space-y-4">
             {messages.map((message) => (
               <MessageBubble
                 key={message.id}
@@ -71,15 +71,17 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             ))}
             {/* Elemento invisible para scroll automático */}
             <div ref={messagesEndRef} />
-          </>
+          </div>
         )}
       </div>
 
-      <MessageInput
-        newMessage={newMessage}
-        onMessageChange={onMessageChange}
-        onSendMessage={onSendMessage}
-      />
+      <div className="flex-shrink-0">
+        <MessageInput
+          newMessage={newMessage}
+          onMessageChange={onMessageChange}
+          onSendMessage={onSendMessage}
+        />
+      </div>
     </div>
   );
 };
