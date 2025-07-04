@@ -19,29 +19,32 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
   const { connections, markAsConnected, getQRCode, getQRFromState, isQRLoading } = useWhatsAppConnections();
   const [hasRequestedQR, setHasRequestedQR] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   
   const connection = connections.find(c => c.id === connectionId);
   const qrCode = connectionId ? getQRFromState(connectionId) : null;
   const isLoading = connectionId ? isQRLoading(connectionId) : false;
 
-  console.log('QRCodeModal render:', { 
+  console.log('🔄 QRCodeModal render:', { 
     open, 
     connectionId, 
     hasQRCode: !!qrCode, 
     isLoading,
     connectionName: connection?.name,
-    qrCodeLength: qrCode?.length
+    qrCodeLength: qrCode?.length,
+    retryCount
   });
 
   // Solicitar código QR automáticamente cuando se abre el modal
   useEffect(() => {
     if (open && connectionId && !hasRequestedQR && !qrCode && !isLoading && !error) {
-      console.log('Modal abierto - solicitando código QR automáticamente para:', connectionId);
+      console.log('🚀 Modal abierto - solicitando código QR automáticamente para:', connectionId);
       setHasRequestedQR(true);
       setError(null);
+      setRetryCount(0);
       
       getQRCode.mutateAsync(connectionId).catch(error => {
-        console.error('Error al obtener QR automáticamente:', error);
+        console.error('❌ Error al obtener QR automáticamente:', error);
         const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
         setError(errorMessage);
         setHasRequestedQR(false);
@@ -54,6 +57,7 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
     if (!open) {
       setHasRequestedQR(false);
       setError(null);
+      setRetryCount(0);
     }
   }, [open]);
 
@@ -66,14 +70,15 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
 
   const handleRefreshQR = async () => {
     if (connectionId) {
-      console.log('Refrescando QR manualmente para:', connectionId);
+      console.log('🔄 Refrescando QR manualmente para:', connectionId, 'Intento:', retryCount + 1);
       setHasRequestedQR(true);
       setError(null);
+      setRetryCount(prev => prev + 1);
       
       try {
         await getQRCode.mutateAsync(connectionId);
       } catch (error) {
-        console.error('Error al refrescar QR:', error);
+        console.error('❌ Error al refrescar QR:', error);
         const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
         setError(errorMessage);
         setHasRequestedQR(false);
@@ -82,6 +87,7 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
   };
 
   const isCircuitBreakerError = error?.includes('Circuit breaker is open');
+  const isGeneratingError = error?.includes('se está generando');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -95,15 +101,32 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
         
         <div className="text-center space-y-4">
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <div className="flex items-center justify-center space-x-2 text-red-700 mb-2">
+            <div className={`border rounded-lg p-4 ${
+              isGeneratingError 
+                ? 'bg-blue-50 border-blue-200' 
+                : 'bg-red-50 border-red-200'
+            }`}>
+              <div className={`flex items-center justify-center space-x-2 mb-2 ${
+                isGeneratingError ? 'text-blue-700' : 'text-red-700'
+              }`}>
                 <AlertTriangle className="w-5 h-5" />
-                <span className="font-medium">Error al obtener código QR</span>
+                <span className="font-medium">
+                  {isGeneratingError ? 'QR en proceso' : 'Error al obtener código QR'}
+                </span>
               </div>
-              <p className="text-sm text-red-600 mb-3">{error}</p>
+              <p className={`text-sm mb-3 ${
+                isGeneratingError ? 'text-blue-600' : 'text-red-600'
+              }`}>
+                {error}
+              </p>
               {isCircuitBreakerError && (
                 <p className="text-xs text-red-500">
                   El sistema ha detectado demasiados intentos fallidos. Por favor espera 30 segundos antes de intentar nuevamente.
+                </p>
+              )}
+              {retryCount > 0 && !isCircuitBreakerError && (
+                <p className="text-xs text-gray-500">
+                  Intentos: {retryCount}
                 </p>
               )}
             </div>
@@ -116,13 +139,13 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
                 <img 
                   src={qrCode}
                   alt="Código QR de WhatsApp" 
-                  className="w-64 h-64 border rounded-lg"
+                  className="w-64 h-64 border rounded-lg shadow-md"
                   onError={(e) => {
-                    console.error('Error al cargar imagen QR:', e);
-                    console.log('URL de imagen que falló:', qrCode);
+                    console.error('❌ Error al cargar imagen QR:', e);
+                    console.log('URL de imagen que falló:', qrCode?.substring(0, 100) + '...');
                   }}
                   onLoad={() => {
-                    console.log('Imagen QR cargada correctamente');
+                    console.log('✅ Imagen QR cargada correctamente');
                   }}
                 />
               </div>
@@ -148,6 +171,9 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
                   <>
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
                     <p className="text-sm text-gray-500">Generando código QR...</p>
+                    {retryCount > 0 && (
+                      <p className="text-xs text-gray-400 mt-1">Intento {retryCount}</p>
+                    )}
                   </>
                 ) : error ? (
                   <>
@@ -162,7 +188,8 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
                       disabled={isLoading || isCircuitBreakerError}
                     >
                       <RefreshCw className="w-4 h-4 mr-2" />
-                      {isCircuitBreakerError ? 'Espera 30s...' : 'Intentar nuevamente'}
+                      {isCircuitBreakerError ? 'Espera 30s...' : 
+                       isGeneratingError ? 'Reintentar' : 'Intentar nuevamente'}
                     </Button>
                   </>
                 ) : (

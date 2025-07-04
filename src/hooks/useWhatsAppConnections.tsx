@@ -221,23 +221,60 @@ export const useWhatsAppConnections = () => {
           name: connection.name
         });
 
-        console.log('Respuesta del webhook QR:', JSON.stringify(response, null, 2));
+        console.log('Respuesta completa del webhook QR:', JSON.stringify(response, null, 2));
 
-        // El webhook devuelve el QR en formato array con data.base64
         let qrCode = null;
         
-        if (Array.isArray(response) && response.length > 0 && response[0]?.data?.base64) {
-          qrCode = response[0].data.base64;
-          console.log('QR extraído del array:', qrCode.substring(0, 50) + '...');
+        // El webhook puede devolver diferentes formatos:
+        // 1. Array con objetos que contienen data.base64
+        // 2. Objeto directo con base64
+        // 3. Solo mensaje de éxito (sin QR aún)
+        
+        if (Array.isArray(response)) {
+          console.log('Respuesta es un array, buscando QR...');
+          
+          // Buscar en el array el objeto que contenga el QR
+          for (const item of response) {
+            if (item && item.data && item.data.base64) {
+              qrCode = item.data.base64;
+              console.log('QR encontrado en array:', qrCode.substring(0, 50) + '...');
+              break;
+            }
+            
+            // También verificar si el base64 está directamente en el item
+            if (item && typeof item === 'string' && item.startsWith('data:image/')) {
+              qrCode = item;
+              console.log('QR encontrado como string directa en array');
+              break;
+            }
+          }
+        } else if (response && typeof response === 'object') {
+          console.log('Respuesta es un objeto, buscando QR...');
+          
+          // Verificar si tiene data.base64
+          if (response.data && response.data.base64) {
+            qrCode = response.data.base64;
+            console.log('QR encontrado en response.data.base64');
+          }
+          // Verificar si el base64 está directamente en el objeto
+          else if (response.base64) {
+            qrCode = response.base64;
+            console.log('QR encontrado en response.base64');
+          }
+          // Verificar si toda la respuesta es el base64
+          else if (typeof response === 'string' && response.startsWith('data:image/')) {
+            qrCode = response;
+            console.log('QR encontrado como string directa');
+          }
         }
 
-        if (qrCode) {
-          console.log('QR Code procesado exitosamente, longitud:', qrCode.length);
+        if (qrCode && qrCode.startsWith('data:image/')) {
+          console.log('✅ QR Code procesado exitosamente, longitud:', qrCode.length);
 
           // Guardar inmediatamente en el estado local
           setQrCodes(prev => {
             const updated = { ...prev, [connectionId]: qrCode };
-            console.log('Estado QR actualizado para conexión:', connectionId);
+            console.log('✅ Estado QR actualizado para conexión:', connectionId);
             return updated;
           });
 
@@ -250,20 +287,29 @@ export const useWhatsAppConnections = () => {
           if (updateError) {
             console.error('Error al actualizar QR en base de datos:', updateError);
           } else {
-            console.log('QR guardado en base de datos exitosamente para conexión:', connectionId);
+            console.log('✅ QR guardado en base de datos exitosamente para conexión:', connectionId);
           }
 
           // Forzar actualización del query client
           queryClient.invalidateQueries({ queryKey: ['whatsapp-connections'] });
 
           return qrCode;
+        } else {
+          console.warn('❌ No se encontró código QR válido en la respuesta del webhook');
+          console.log('Tipo de respuesta:', typeof response);
+          console.log('Es array:', Array.isArray(response));
+          console.log('Contenido:', response);
+          
+          // Si es solo un mensaje de éxito, el QR podría estar generándose aún
+          if (response && response.message === 'Request processed successfully') {
+            throw new Error('El código QR se está generando. Por favor intenta nuevamente en unos segundos.');
+          }
+          
+          throw new Error('No se recibió código QR del webhook. Verifica la configuración.');
         }
-
-        console.warn('No se encontró código QR en la respuesta del webhook');
-        throw new Error('No se recibió código QR del webhook');
         
       } catch (error) {
-        console.error('Error al obtener QR:', error);
+        console.error('❌ Error al obtener QR:', error);
         throw error;
       } finally {
         // Quitar el estado de carga
@@ -272,7 +318,7 @@ export const useWhatsAppConnections = () => {
     },
     onSuccess: (data, connectionId) => {
       if (data) {
-        console.log('QR obtenido exitosamente para conexión:', connectionId);
+        console.log('✅ QR obtenido exitosamente para conexión:', connectionId);
         
         toast({
           title: "Código QR obtenido",
@@ -281,7 +327,7 @@ export const useWhatsAppConnections = () => {
       }
     },
     onError: (error, connectionId) => {
-      console.error('Error en getQRCode mutation:', error);
+      console.error('❌ Error en getQRCode mutation:', error);
       setQrLoading(prev => ({ ...prev, [connectionId]: false }));
       
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
@@ -292,6 +338,12 @@ export const useWhatsAppConnections = () => {
           title: "Demasiados intentos fallidos",
           description: "Por favor espera 30 segundos antes de intentar nuevamente.",
           variant: "destructive",
+        });
+      } else if (errorMessage.includes('se está generando')) {
+        toast({
+          title: "QR en proceso",
+          description: errorMessage,
+          variant: "default",
         });
       } else {
         toast({
@@ -435,14 +487,14 @@ export const useWhatsAppConnections = () => {
   // Función para obtener el QR desde el estado local
   const getQRFromState = (connectionId: string) => {
     const qr = qrCodes[connectionId];
-    console.log('Obteniendo QR del estado para conexión:', connectionId, qr ? `QR disponible (${qr.length} chars)` : 'QR no disponible');
+    console.log('🔍 Obteniendo QR del estado para conexión:', connectionId, qr ? `QR disponible (${qr.length} chars)` : 'QR no disponible');
     return qr || null;
   };
 
   // Función para verificar si está cargando el QR
   const isQRLoading = (connectionId: string) => {
     const loading = qrLoading[connectionId] || false;
-    console.log('Estado de carga QR para conexión:', connectionId, loading ? 'Cargando' : 'No cargando');
+    console.log('⏳ Estado de carga QR para conexión:', connectionId, loading ? 'Cargando' : 'No cargando');
     return loading;
   };
 
