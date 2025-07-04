@@ -380,7 +380,36 @@ export const useWhatsAppConnections = () => {
           // Check if it's a success message indicating QR is still generating
           if (response && (response.message === 'Request processed successfully' || 
                           (typeof response === 'string' && response.includes('success')))) {
-            throw new Error('El código QR se está generando. Por favor intenta nuevamente en unos segundos.');
+            console.log('🔄 El webhook indica que el QR se está procesando, reintentando en 3 segundos...');
+            
+            // Retry after 3 seconds
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            
+            console.log('🔄 Segundo intento para obtener el QR...');
+            const retryResponse = await makeWebhookRequest('qr', {
+              name: connection.name
+            });
+            
+            console.log('📥 Respuesta del segundo intento:', JSON.stringify(retryResponse, null, 2));
+            const retryQrCode = extractQRFromResponse(retryResponse);
+            
+            if (retryQrCode) {
+              console.log('✅ QR obtenido en segundo intento');
+              
+              // Guardar en estado local
+              setQrCodes(prev => ({ ...prev, [connectionId]: retryQrCode }));
+              
+              // Actualizar base de datos
+              await supabase
+                .from('whatsapp_connections')
+                .update({ qr_code: retryQrCode })
+                .eq('id', connectionId);
+              
+              queryClient.invalidateQueries({ queryKey: ['whatsapp-connections'] });
+              return retryQrCode;
+            } else {
+              throw new Error('El código QR aún se está generando. Por favor intenta nuevamente en unos segundos.');
+            }
           }
           
           throw new Error('No se recibió código QR válido del webhook. Verifica la configuración del webhook.');
