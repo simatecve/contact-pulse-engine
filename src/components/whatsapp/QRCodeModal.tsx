@@ -1,9 +1,8 @@
-
 import React, { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useWhatsAppConnections } from '@/hooks/useWhatsAppConnections';
-import { RefreshCw, AlertTriangle } from 'lucide-react';
+import { RefreshCw, AlertTriangle, CheckCircle } from 'lucide-react';
 
 interface QRCodeModalProps {
   open: boolean;
@@ -32,6 +31,7 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
     isLoading,
     connectionName: connection?.name,
     qrCodeLength: qrCode?.length,
+    qrCodePreview: qrCode?.substring(0, 50),
     retryCount
   });
 
@@ -148,6 +148,14 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
                     console.log('✅ Imagen QR cargada correctamente');
                   }}
                 />
+              </div>
+              
+              {/* Success indicator */}
+              <div className="flex items-center justify-center space-x-2 text-green-600 bg-green-50 rounded-lg p-3">
+                <CheckCircle className="w-5 h-5" />
+                <span className="text-sm font-medium">
+                  Código QR generado correctamente
+                </span>
               </div>
               
               <Button 
