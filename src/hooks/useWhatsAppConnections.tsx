@@ -77,19 +77,29 @@ const extractQRFromResponse = (response: any): string | null => {
   console.log('🔍 Extracting QR from response:', {
     type: typeof response,
     isArray: Array.isArray(response),
-    keys: response && typeof response === 'object' ? Object.keys(response) : 'N/A'
+    responseString: JSON.stringify(response).substring(0, 200) + '...'
   });
 
   // Helper function to validate base64 image
   const isValidBase64Image = (str: string): boolean => {
-    return typeof str === 'string' && 
+    const isValid = typeof str === 'string' && 
            str.startsWith('data:image/') && 
            str.includes('base64,') &&
-           str.length > 50; // Basic length check
+           str.length > 100; // Ensure it's a substantial base64 string
+    
+    console.log('🧪 Base64 validation:', {
+      isString: typeof str === 'string',
+      startsWithData: str?.startsWith('data:image/'),
+      includesBase64: str?.includes('base64,'),
+      length: str?.length,
+      isValid
+    });
+    
+    return isValid;
   };
 
   // Case 1: Response is an array (your webhook format)
-  if (Array.isArray(response)) {
+  if (Array.isArray(response) && response.length > 0) {
     console.log('📋 Processing array response with', response.length, 'items');
     
     for (let i = 0; i < response.length; i++) {
@@ -97,27 +107,32 @@ const extractQRFromResponse = (response: any): string | null => {
       console.log(`🔎 Checking array item ${i}:`, {
         type: typeof item,
         hasData: item && typeof item === 'object' && 'data' in item,
-        isString: typeof item === 'string'
+        itemStructure: item && typeof item === 'object' ? Object.keys(item) : 'N/A'
       });
 
-      // Check if item has data.base64 structure
-      if (item && typeof item === 'object' && item.data && item.data.base64) {
+      // Check if item has data.base64 structure (your exact format)
+      if (item && typeof item === 'object' && item.data && typeof item.data === 'object' && item.data.base64) {
         const qrCandidate = item.data.base64;
-        console.log('🎯 Found data.base64 in array item:', qrCandidate.substring(0, 50) + '...');
+        console.log('🎯 Found data.base64 in array item:', {
+          preview: qrCandidate.substring(0, 50) + '...',
+          length: qrCandidate.length
+        });
         
         if (isValidBase64Image(qrCandidate)) {
           console.log('✅ Valid QR found in array item data.base64');
           return qrCandidate;
+        } else {
+          console.warn('❌ Invalid base64 format in data.base64');
         }
       }
 
-      // Check if item itself is a base64 string
+      // Fallback: Check if item itself is a base64 string
       if (typeof item === 'string' && isValidBase64Image(item)) {
         console.log('✅ Valid QR found as direct array item');
         return item;
       }
 
-      // Check for other possible structures
+      // Additional fallback checks
       if (item && typeof item === 'object') {
         // Check for base64 directly in item
         if (item.base64 && isValidBase64Image(item.base64)) {
@@ -125,20 +140,18 @@ const extractQRFromResponse = (response: any): string | null => {
           return item.base64;
         }
         
-        // Check for qr or qrCode properties
-        if (item.qr && isValidBase64Image(item.qr)) {
-          console.log('✅ Valid QR found in array item.qr');
-          return item.qr;
-        }
-        
-        if (item.qrCode && isValidBase64Image(item.qrCode)) {
-          console.log('✅ Valid QR found in array item.qrCode');
-          return item.qrCode;
+        // Check for other possible QR properties
+        const qrProperties = ['qr', 'qrCode', 'qr_code', 'image', 'code'];
+        for (const prop of qrProperties) {
+          if (item[prop] && isValidBase64Image(item[prop])) {
+            console.log(`✅ Valid QR found in array item.${prop}`);
+            return item[prop];
+          }
         }
       }
     }
     
-    console.log('❌ No valid QR found in array items');
+    console.log('❌ No valid QR found in any array items');
     return null;
   }
 
@@ -198,7 +211,7 @@ export const useWhatsAppConnections = () => {
       throw new Error(`Webhook URL not found for endpoint: ${endpoint}`);
     }
 
-    console.log(`Making request to webhook: ${endpoint}`, { url: webhookUrl, data });
+    console.log(`🚀 Making request to webhook: ${endpoint}`, { url: webhookUrl, data });
     
     try {
       const response = await fetch(webhookUrl, {
@@ -209,7 +222,7 @@ export const useWhatsAppConnections = () => {
         body: JSON.stringify(data),
       });
 
-      console.log(`Webhook ${endpoint} response status:`, response.status);
+      console.log(`📡 Webhook ${endpoint} response status:`, response.status);
       
       if (!response.ok) {
         const errorText = await response.text().catch(() => 'Unknown error');
@@ -222,12 +235,12 @@ export const useWhatsAppConnections = () => {
         return { message: text || 'Request processed successfully' };
       });
 
-      console.log(`Webhook ${endpoint} response:`, responseData);
+      console.log(`📥 Webhook ${endpoint} response data:`, responseData);
       recordSuccess(circuitKey);
       
       return responseData;
     } catch (error) {
-      console.error(`Error in webhook ${endpoint}:`, error);
+      console.error(`❌ Error in webhook ${endpoint}:`, error);
       recordFailure(circuitKey);
       throw error;
     }
@@ -312,11 +325,11 @@ export const useWhatsAppConnections = () => {
 
       // Evitar solicitudes múltiples
       if (qrLoading[connectionId]) {
-        console.log('Ya hay una petición de QR en curso para:', connectionId);
+        console.log('⚠️  Ya hay una petición de QR en curso para:', connectionId);
         return null;
       }
 
-      console.log('🚀 Solicitando código QR para:', connection.name);
+      console.log('🚀 Solicitando código QR para conexión:', connection.name);
       
       // Marcar como cargando
       setQrLoading(prev => ({ ...prev, [connectionId]: true }));
@@ -332,7 +345,11 @@ export const useWhatsAppConnections = () => {
         const qrCode = extractQRFromResponse(response);
 
         if (qrCode) {
-          console.log('✅ QR Code procesado exitosamente, longitud:', qrCode.length);
+          console.log('✅ QR Code procesado exitosamente:', {
+            length: qrCode.length,
+            preview: qrCode.substring(0, 100) + '...',
+            type: qrCode.substring(0, 20)
+          });
 
           // Guardar inmediatamente en el estado local
           setQrCodes(prev => {
