@@ -510,26 +510,34 @@ export const useWhatsAppConnections = () => {
       const connection = connections.find(c => c.id === connectionId);
       if (!connection) throw new Error('Conexión no encontrada');
 
-      console.log('Eliminando instancia:', connection.name);
+      console.log('🗑️ Iniciando eliminación de instancia:', connection.name);
 
       try {
-        // Intentar eliminar la instancia del webhook
+        // Intentar eliminar la instancia del webhook usando la URL desde la base de datos
         try {
+          console.log('🔗 Obteniendo URL del webhook eliminar-instancia...');
+          
           await makeWebhookRequest('eliminar-instancia', {
             name: connection.name
           });
-          console.log('Instancia eliminada del webhook correctamente');
+          
+          console.log('✅ Instancia eliminada del webhook correctamente');
         } catch (webhookError) {
-          console.warn('Error al eliminar del webhook (continuando):', webhookError);
+          console.warn('⚠️ Error al eliminar del webhook (continuando con eliminación local):', webhookError);
+          // Continuamos con la eliminación local aunque falle el webhook
         }
 
-        // Eliminar de la base de datos
+        // Eliminar de la base de datos local
+        console.log('🗄️ Eliminando conexión de la base de datos...');
         const { error } = await supabase
           .from('whatsapp_connections')
           .delete()
           .eq('id', connectionId);
 
-        if (error) throw error;
+        if (error) {
+          console.error('❌ Error al eliminar de la base de datos:', error);
+          throw error;
+        }
 
         // Limpiar el QR del estado local si existe
         setQrCodes(prev => {
@@ -538,27 +546,38 @@ export const useWhatsAppConnections = () => {
           return newQrCodes;
         });
 
+        console.log('✅ Conexión eliminada completamente');
         return { success: true };
       } catch (error) {
-        console.error('Error en deleteConnection:', error);
+        console.error('❌ Error en deleteConnection:', error);
         throw error;
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['whatsapp-connections'] });
       toast({
-        title: "Conexión eliminada",
-        description: "La conexión se eliminó correctamente.",
+        title: "Instancia eliminada",
+        description: "La instancia de WhatsApp se eliminó correctamente.",
       });
     },
     onError: (error) => {
-      console.error('Error en deleteConnection mutation:', error);
+      console.error('❌ Error en deleteConnection mutation:', error);
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      toast({
-        title: "Error al eliminar",
-        description: `No se pudo eliminar la conexión: ${errorMessage}`,
-        variant: "destructive",
-      });
+      
+      // Verificar si es un error de circuit breaker
+      if (errorMessage.includes('Circuit breaker is open')) {
+        toast({
+          title: "Demasiados intentos fallidos",
+          description: "Por favor espera 30 segundos antes de intentar nuevamente.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error al eliminar instancia",
+          description: `No se pudo eliminar la instancia: ${errorMessage}`,
+          variant: "destructive",
+        });
+      }
     }
   });
 
