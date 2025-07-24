@@ -13,17 +13,19 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   return (
     <ErrorBoundary>
-      <div className="flex h-screen bg-gray-50">
+      <div className="flex h-screen bg-gray-50 overflow-hidden">
         <Sidebar 
           collapsed={sidebarCollapsed} 
           onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} 
         />
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col min-w-0">
           <Header />
-          <main className="flex-1 overflow-auto p-6">
-            <ErrorBoundary>
-              {children}
-            </ErrorBoundary>
+          <main className="flex-1 overflow-auto">
+            <div className="p-6">
+              <ErrorBoundary>
+                {children}
+              </ErrorBoundary>
+            </div>
           </main>
         </div>
       </div>
