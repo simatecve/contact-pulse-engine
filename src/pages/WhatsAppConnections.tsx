@@ -1,11 +1,12 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Smartphone, Wifi, WifiOff, RefreshCw, Trash2, Sparkles, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { CreateConnectionForm } from '@/components/whatsapp/CreateConnectionForm';
 import { QRCodeModal } from '@/components/whatsapp/QRCodeModal';
 import { useWhatsAppConnections } from '@/hooks/useWhatsAppConnections';
+import { useWebhookUrls } from '@/hooks/useWebhookUrls';
 
 export const WhatsAppConnections: React.FC = () => {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -13,8 +14,39 @@ export const WhatsAppConnections: React.FC = () => {
   const [showQRModal, setShowQRModal] = useState(false);
   
   const { connections, isLoading, checkConnectionStatus, deleteConnection } = useWhatsAppConnections();
+  const { webhooks, isLoading: webhooksLoading, error: webhooksError } = useWebhookUrls();
+
+  // Log webhook status for debugging
+  useEffect(() => {
+    if (!webhooksLoading) {
+      console.log('🔧 Webhook URLs loaded:', webhooks);
+      if (webhooksError) {
+        console.error('❌ Webhook URLs error:', webhooksError);
+      }
+    }
+  }, [webhooks, webhooksLoading, webhooksError]);
 
   const handleConnectQR = async (connectionId: string) => {
+    console.log('🚀 Attempting to connect QR for connection:', connectionId);
+    
+    // Check if webhook URLs are available
+    if (webhooksLoading) {
+      console.log('⏳ Waiting for webhook URLs to load...');
+      return;
+    }
+    
+    if (webhooksError) {
+      console.error('❌ Cannot connect QR - webhook URLs failed to load:', webhooksError);
+      return;
+    }
+    
+    const qrWebhook = webhooks.find(w => w.name === 'qr');
+    if (!qrWebhook) {
+      console.error('❌ QR webhook not found in loaded webhooks:', webhooks);
+      return;
+    }
+    
+    console.log('✅ QR webhook found:', qrWebhook.url);
     setSelectedConnection(connectionId);
     setShowQRModal(true);
   };
@@ -41,12 +73,31 @@ export const WhatsAppConnections: React.FC = () => {
     return status === 'connected' ? 'Conectado' : 'Desconectado';
   };
 
-  if (isLoading) {
+  if (isLoading || webhooksLoading) {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Cargando conexiones...</p>
+          <p className="text-gray-600">
+            {isLoading ? 'Cargando conexiones...' : 'Cargando configuración...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error if webhooks failed to load
+  if (webhooksError) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-center">
+          <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Sparkles className="w-6 h-6 text-red-600" />
+          </div>
+          <p className="text-red-600 font-medium">Error al cargar configuración</p>
+          <p className="text-gray-600 text-sm mt-2">
+            No se pudieron cargar las URLs de webhook necesarias
+          </p>
         </div>
       </div>
     );
@@ -73,6 +124,11 @@ export const WhatsAppConnections: React.FC = () => {
                   <div className="flex items-center">
                     <Zap className="w-4 h-4 text-yellow-300 mr-1" />
                     <span className="text-sm text-indigo-100">Conexión segura</span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="text-sm text-indigo-100">
+                      Webhooks: {webhooks.length} configurados
+                    </span>
                   </div>
                 </div>
               </div>
@@ -134,9 +190,10 @@ export const WhatsAppConnections: React.FC = () => {
                 <Button
                   onClick={() => handleConnectQR(connection.id)}
                   className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-medium"
+                  disabled={webhooksLoading || !webhooks.find(w => w.name === 'qr')}
                 >
                   <Smartphone className="w-4 h-4 mr-2" />
-                  Conectar con Código QR
+                  {!webhooks.find(w => w.name === 'qr') ? 'Configurando...' : 'Conectar con Código QR'}
                 </Button>
               )}
 
