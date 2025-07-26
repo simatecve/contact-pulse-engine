@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -37,31 +38,26 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
     imageError
   });
 
-  // Función para validar y limpiar el base64
-  const processBase64Image = (base64String: string): string => {
-    console.log('🎨 Processing base64 image:', {
-      originalLength: base64String.length,
-      startsWithData: base64String.startsWith('data:'),
-      preview: base64String.substring(0, 100)
-    });
-
-    // Si ya tiene el formato data:image, usarlo tal como está
-    if (base64String.startsWith('data:image/')) {
-      console.log('✅ Base64 already has proper data URI format');
-      return base64String;
+  // Función simplificada para validar base64
+  const isValidQRCode = (base64String: string): boolean => {
+    if (!base64String || typeof base64String !== 'string') {
+      console.log('❌ QR Code inválido: no es string o está vacío');
+      return false;
     }
 
-    // Si es base64 puro, agregar el prefijo data URI
-    const cleanBase64 = base64String.replace(/^data:image\/[^;]+;base64,/, '');
-    const dataUri = `data:image/png;base64,${cleanBase64}`;
-    
-    console.log('🔧 Converted to data URI:', {
-      cleanedLength: cleanBase64.length,
-      finalLength: dataUri.length,
-      finalPreview: dataUri.substring(0, 100)
+    // Debe comenzar con data:image y contener base64
+    const isValid = base64String.startsWith('data:image/') && 
+                   base64String.includes('base64,') && 
+                   base64String.length > 100;
+
+    console.log('🧪 Validación QR:', {
+      startsWithData: base64String.startsWith('data:image/'),
+      includesBase64: base64String.includes('base64,'),
+      length: base64String.length,
+      isValid
     });
 
-    return dataUri;
+    return isValid;
   };
 
   // Resetear error de imagen cuando cambia el QR
@@ -143,8 +139,8 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
   const isCircuitBreakerError = error?.includes('Circuit breaker is open');
   const isGeneratingError = error?.includes('se está generando');
 
-  // Procesar el QR code si existe
-  const processedQRCode = qrCode ? processBase64Image(qrCode) : null;
+  // Solo usar el QR si es válido
+  const validQRCode = qrCode && isValidQRCode(qrCode) ? qrCode : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -189,23 +185,19 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
             </div>
           )}
           
-          {/* Mostrar QR si está disponible */}
-          {processedQRCode && !imageError && (
+          {/* Mostrar QR si está disponible y es válido */}
+          {validQRCode && !imageError && (
             <div className="space-y-4">
               <div className="flex justify-center">
                 <div className="relative">
                   <img 
-                    src={processedQRCode}
+                    src={validQRCode}
                     alt="Código QR de WhatsApp" 
                     className="w-64 h-64 border rounded-lg shadow-md bg-white p-2"
                     onError={handleImageError}
                     onLoad={handleImageLoad}
                     style={{ imageRendering: 'pixelated' }}
                   />
-                  {/* Overlay de loading mientras carga la imagen */}
-                  <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg opacity-0 transition-opacity duration-200">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  </div>
                 </div>
               </div>
               
@@ -231,7 +223,7 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
           )}
 
           {/* Mostrar error de imagen si falla la carga */}
-          {processedQRCode && imageError && (
+          {validQRCode && imageError && (
             <div className="space-y-4">
               <div className="flex justify-center items-center w-64 h-64 mx-auto border-2 border-dashed border-red-300 rounded-lg bg-red-50">
                 <div className="text-center">
@@ -240,7 +232,7 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
                     Error al mostrar el código QR
                   </p>
                   <p className="text-xs text-gray-500 mb-4">
-                    Base64 recibido pero no se pudo convertir a imagen
+                    QR recibido pero no se pudo convertir a imagen
                   </p>
                   <Button 
                     onClick={handleRefreshQR}
@@ -256,8 +248,8 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
             </div>
           )}
 
-          {/* Mostrar estado de carga o error cuando no hay QR */}
-          {!processedQRCode && (
+          {/* Mostrar estado de carga o error cuando no hay QR válido */}
+          {!validQRCode && (
             <div className="flex justify-center items-center w-64 h-64 mx-auto border-2 border-dashed border-gray-300 rounded-lg">
               <div className="text-center">
                 {isLoading ? (
