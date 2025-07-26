@@ -19,6 +19,7 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
   const [hasRequestedQR, setHasRequestedQR] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [imageError, setImageError] = useState(false);
   
   const connection = connections.find(c => c.id === connectionId);
   const qrCode = connectionId ? getQRFromState(connectionId) : null;
@@ -32,8 +33,43 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
     connectionName: connection?.name,
     qrCodeLength: qrCode?.length,
     qrCodePreview: qrCode?.substring(0, 50),
-    retryCount
+    retryCount,
+    imageError
   });
+
+  // Función para validar y limpiar el base64
+  const processBase64Image = (base64String: string): string => {
+    console.log('🎨 Processing base64 image:', {
+      originalLength: base64String.length,
+      startsWithData: base64String.startsWith('data:'),
+      preview: base64String.substring(0, 100)
+    });
+
+    // Si ya tiene el formato data:image, usarlo tal como está
+    if (base64String.startsWith('data:image/')) {
+      console.log('✅ Base64 already has proper data URI format');
+      return base64String;
+    }
+
+    // Si es base64 puro, agregar el prefijo data URI
+    const cleanBase64 = base64String.replace(/^data:image\/[^;]+;base64,/, '');
+    const dataUri = `data:image/png;base64,${cleanBase64}`;
+    
+    console.log('🔧 Converted to data URI:', {
+      cleanedLength: cleanBase64.length,
+      finalLength: dataUri.length,
+      finalPreview: dataUri.substring(0, 100)
+    });
+
+    return dataUri;
+  };
+
+  // Resetear error de imagen cuando cambia el QR
+  useEffect(() => {
+    if (qrCode) {
+      setImageError(false);
+    }
+  }, [qrCode]);
 
   // Solicitar código QR automáticamente cuando se abre el modal
   useEffect(() => {
@@ -73,6 +109,7 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
       console.log('🔄 Refrescando QR manualmente para:', connectionId, 'Intento:', retryCount + 1);
       setHasRequestedQR(true);
       setError(null);
+      setImageError(false);
       setRetryCount(prev => prev + 1);
       
       try {
@@ -86,8 +123,28 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
     }
   };
 
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    console.error('❌ Error al cargar imagen QR:', e);
+    if (qrCode) {
+      console.log('🔍 QR Code que falló:', {
+        length: qrCode.length,
+        startsWithData: qrCode.startsWith('data:'),
+        preview: qrCode.substring(0, 200)
+      });
+    }
+    setImageError(true);
+  };
+
+  const handleImageLoad = () => {
+    console.log('✅ Imagen QR cargada correctamente');
+    setImageError(false);
+  };
+
   const isCircuitBreakerError = error?.includes('Circuit breaker is open');
   const isGeneratingError = error?.includes('se está generando');
+
+  // Procesar el QR code si existe
+  const processedQRCode = qrCode ? processBase64Image(qrCode) : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -133,21 +190,23 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
           )}
           
           {/* Mostrar QR si está disponible */}
-          {qrCode && (
+          {processedQRCode && !imageError && (
             <div className="space-y-4">
               <div className="flex justify-center">
-                <img 
-                  src={qrCode}
-                  alt="Código QR de WhatsApp" 
-                  className="w-64 h-64 border rounded-lg shadow-md"
-                  onError={(e) => {
-                    console.error('❌ Error al cargar imagen QR:', e);
-                    console.log('URL de imagen que falló:', qrCode?.substring(0, 100) + '...');
-                  }}
-                  onLoad={() => {
-                    console.log('✅ Imagen QR cargada correctamente');
-                  }}
-                />
+                <div className="relative">
+                  <img 
+                    src={processedQRCode}
+                    alt="Código QR de WhatsApp" 
+                    className="w-64 h-64 border rounded-lg shadow-md bg-white p-2"
+                    onError={handleImageError}
+                    onLoad={handleImageLoad}
+                    style={{ imageRendering: 'pixelated' }}
+                  />
+                  {/* Overlay de loading mientras carga la imagen */}
+                  <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg opacity-0 transition-opacity duration-200">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  </div>
+                </div>
               </div>
               
               {/* Success indicator */}
@@ -171,8 +230,34 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
             </div>
           )}
 
+          {/* Mostrar error de imagen si falla la carga */}
+          {processedQRCode && imageError && (
+            <div className="space-y-4">
+              <div className="flex justify-center items-center w-64 h-64 mx-auto border-2 border-dashed border-red-300 rounded-lg bg-red-50">
+                <div className="text-center">
+                  <AlertTriangle className="w-8 h-8 text-red-500 mx-auto mb-2" />
+                  <p className="text-sm text-red-600 mb-2">
+                    Error al mostrar el código QR
+                  </p>
+                  <p className="text-xs text-gray-500 mb-4">
+                    Base64 recibido pero no se pudo convertir a imagen
+                  </p>
+                  <Button 
+                    onClick={handleRefreshQR}
+                    variant="outline"
+                    size="sm"
+                    disabled={isLoading}
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Intentar nuevamente
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Mostrar estado de carga o error cuando no hay QR */}
-          {!qrCode && (
+          {!processedQRCode && (
             <div className="flex justify-center items-center w-64 h-64 mx-auto border-2 border-dashed border-gray-300 rounded-lg">
               <div className="text-center">
                 {isLoading ? (
