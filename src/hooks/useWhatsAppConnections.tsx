@@ -339,9 +339,24 @@ export const useWhatsAppConnections = () => {
           name: connection.name
         });
 
-        console.log('📥 Respuesta completa del webhook QR:', JSON.stringify(response, null, 2));
+        console.log('📥 Respuesta completa del webhook QR:', response);
 
-        // Use the improved extraction function
+        // First check if response is directly a base64 string (your case)
+        if (typeof response === 'string' && response.startsWith('data:image/')) {
+          console.log('✅ QR directo como string base64');
+          
+          setQrCodes(prev => ({ ...prev, [connectionId]: response }));
+          
+          await supabase
+            .from('whatsapp_connections')
+            .update({ qr_code: response })
+            .eq('id', connectionId);
+          
+          queryClient.invalidateQueries({ queryKey: ['whatsapp-connections'] });
+          return response;
+        }
+
+        // Try to extract QR from complex response
         const qrCode = extractQRFromResponse(response);
 
         if (qrCode) {
@@ -351,68 +366,18 @@ export const useWhatsAppConnections = () => {
             type: qrCode.substring(0, 20)
           });
 
-          // Guardar inmediatamente en el estado local
-          setQrCodes(prev => {
-            const updated = { ...prev, [connectionId]: qrCode };
-            console.log('💾 Estado QR actualizado para conexión:', connectionId);
-            return updated;
-          });
+          setQrCodes(prev => ({ ...prev, [connectionId]: qrCode }));
 
-          // Actualizar la base de datos
-          const { error: updateError } = await supabase
+          await supabase
             .from('whatsapp_connections')
             .update({ qr_code: qrCode })
             .eq('id', connectionId);
 
-          if (updateError) {
-            console.error('❌ Error al actualizar QR en base de datos:', updateError);
-          } else {
-            console.log('💾 QR guardado en base de datos exitosamente para conexión:', connectionId);
-          }
-
-          // Forzar actualización del query client
           queryClient.invalidateQueries({ queryKey: ['whatsapp-connections'] });
-
           return qrCode;
         } else {
-          console.warn('❌ No se encontró código QR válido en la respuesta del webhook');
-          
-          // Check if it's a success message indicating QR is still generating
-          if (response && (response.message === 'Request processed successfully' || 
-                          (typeof response === 'string' && response.includes('success')))) {
-            console.log('🔄 El webhook indica que el QR se está procesando, reintentando en 3 segundos...');
-            
-            // Retry after 3 seconds
-            await new Promise(resolve => setTimeout(resolve, 3000));
-            
-            console.log('🔄 Segundo intento para obtener el QR...');
-            const retryResponse = await makeWebhookRequest('qr', {
-              name: connection.name
-            });
-            
-            console.log('📥 Respuesta del segundo intento:', JSON.stringify(retryResponse, null, 2));
-            const retryQrCode = extractQRFromResponse(retryResponse);
-            
-            if (retryQrCode) {
-              console.log('✅ QR obtenido en segundo intento');
-              
-              // Guardar en estado local
-              setQrCodes(prev => ({ ...prev, [connectionId]: retryQrCode }));
-              
-              // Actualizar base de datos
-              await supabase
-                .from('whatsapp_connections')
-                .update({ qr_code: retryQrCode })
-                .eq('id', connectionId);
-              
-              queryClient.invalidateQueries({ queryKey: ['whatsapp-connections'] });
-              return retryQrCode;
-            } else {
-              throw new Error('El código QR aún se está generando. Por favor intenta nuevamente en unos segundos.');
-            }
-          }
-          
-          throw new Error('No se recibió código QR válido del webhook. Verifica la configuración del webhook.');
+          // If we get a success message, the QR might be generating
+          throw new Error('El código QR aún se está generando. Por favor intenta nuevamente en unos segundos.');
         }
         
       } catch (error) {
